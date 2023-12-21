@@ -17,6 +17,7 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 import requests
+import fjson
 
 
 logger = logging.getLogger(__name__)
@@ -35,8 +36,8 @@ class Infinispan(VectorStore):
         result = []
         for text in texts:
             key = self._to_key(text)
-            data = self._to_data(text)
-            vec = self._embedding.embed_query(self._to_embed_data(data))
+            data = self._to_attributes(text)
+            vec = self._embedding.embed_query(self._to_content(data))
             data["floatVector"] = vec
             dataStr = json.dumps(data)
             resp = self.req_put(key, dataStr)
@@ -45,9 +46,9 @@ class Infinispan(VectorStore):
 
     def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> List[Document]:
         """Return docs most similar to query."""
-        embedding = self._embedding.embed_query(query)
+        embed = self._embedding.embed_query(query)
         documents = self.similarity_search_with_score_by_vector(
-            embedding=embedding, k=k
+            embedding=embed, k=k
         )
         return [doc for doc, _ in documents]
 
@@ -59,41 +60,60 @@ class Infinispan(VectorStore):
     ):
         self._configuration = configuration
         self._schema = str(self._configuration.get("schema","http"))
-        self._host = str(self._configuration["hosts"][0])
+        self._host = str(self._configuration.get("hosts",["127.0.0.1:11222"])[0])
         self._cache_url = str(self._configuration.get("cache_url","/rest/v2/caches"))
         self._schema_url = str(self._configuration.get("cache_url","/rest/v2/schemas"))
         self._cache_name = str(self._configuration.get("cache_name","embeddingvectors"))
+        self._entity_name = str(self._configuration.get("entity_name","vector"))
+        self._use_post_for_query = str(self._configuration.get("use_post_for_query",True))
         self._default_node = self._schema+"://"+self._host
         self._embedding = embedding
         if not isinstance(embedding, Embeddings):
             warnings.warn("embeddings input must be Embeddings object.")
-        self._to_content = lambda hit: hit["content"] or {}
-        self._to_key = lambda text: str(text["_key"])
-        self._to_data = lambda item: {x:item[x] for x in item if x != '_key'}
-        self._to_embed_data = lambda item: item["position"]
-    def node_address(self, key) -> str:
-        return self._default_node
+        # self._to_content = lambda hit: hit["content"] or {}
+        self._to_key = configuration.get("lambda.key",lambda text: str(text["_key"]))
+        self._to_attributes = configuration.get("lambda.attributes",lambda item: {x:item[x] for x in item if x != '_key'})
+        self._to_content =  configuration.get("lambda.content", lambda item: item["position"])
 
     def similarity_search_by_vector(
         self, embedding, k = 4, **kwargs)  -> List[Document]:
-        query_str = "from vector v where v.floatVector <-> "+json.dumps(embedding)+"~"+str(k)
-        return self.req_query(query_str)
+        query_str = "from "+self._entity_name+"v where v.floatVector <-> "+json.dumps(embedding)+"~"+str(k)
+        query_res = self.req_query(query_str)
+        result = json.loads(query_res.text)
+        return self.query_to_document(result)
 
     def similarity_search_with_score_by_vector(
                   self, embedding: List[float], k: int = 4, **kwargs: Any
               ) -> List[Tuple[Document, float]]:
-        query_str = "from vector v where v.floatVector <-> "+json.dumps(embedding)+"~"+str(k)
+        # Workaround, trunc float for http/get
+        query_str = "from "+self._entity_name+" v where v.floatVector <-> "+json.dumps(embedding)+"~"+str(k)
         query_res = self.req_query(query_str)
-        result  = json.loads(query_res.text)
+        result = json.loads(query_res.text)
+        return self.query_to_document(result)
+
+    def query_to_document(self, result) -> List[Document]:
         documents = []
         for row in result["hits"]:
             hit = row["hit"] or {}
             doc = Document(page_content=self._to_content(hit))
             documents.append((doc, 0))
-
         return documents
 
     def req_query(self, query_str, local = False) -> requests.Response:
+        if self._use_post_for_query:
+            return self.req_query_post(query_str, local)
+        else:
+            return self.req_query_get(query_str, local)
+
+
+    def req_query_post(self, query_str, local = False) -> requests.Response:
+        api_url=self._default_node+self._cache_url+"/"+self._cache_name+"?action=search"
+        data = { "query" : query_str }
+        dataJson = json.dumps(data)
+        response = requests.post(api_url, dataJson, headers= {"Content-Type" : "application/json"})
+        return response
+
+    def req_query_get(self, query_str, local = False) -> requests.Response:
         api_url=self._default_node+self._cache_url+"/"+self._cache_name+"?action=search&query="+query_str+"&local="+str(local)
         response = requests.get(api_url)
         return response
@@ -138,160 +158,6 @@ class Infinispan(VectorStore):
         response = requests.post(api_url)
         return response
 
-    #  def similarity_search_with_score_by_vector(
-   #      self, embedding: List[float], k: int = 4, **kwargs: Any
-   #  ) -> List[Tuple[Document, float]]:
-   #      ickle_query = f"""
-   #          SELECT
-   #              text,
-   #              metadata,
-   #              distance
-   #          FROM {self._table} e
-   #          INNER JOIN vss_{self._table} v on v.rowid = e.rowid
-   #          WHERE vss_search(
-   #            v.text_embedding,
-   #            vss_search_params('{json.dumps(embedding)}', {k})
-   #          )
-   #      """
-   #      cursor = self._connection.cursor()
-   #      cursor.execute(sql_query)
-   #      results = cursor.fetchall()
-
-   #      documents = []
-   #      for row in results:
-   #          metadata = json.loads(row["metadata"]) or {}
-   #          doc = Document(page_content=row["text"], metadata=metadata)
-   #          documents.append((doc, row["distance"]))
-
-   #      return documents
-
-
-
-   #  def create_table_if_not_exists(self) -> None:
-   #      self._connection.execute(
-   #          f"""
-   #          CREATE TABLE IF NOT EXISTS {self._table}
-   #          (
-   #            rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-   #            text TEXT,
-   #            metadata BLOB,
-   #            text_embedding BLOB
-   #          )
-   #          ;
-   #          """
-   #      )
-   #      self._connection.execute(
-   #          f"""
-   #              CREATE VIRTUAL TABLE IF NOT EXISTS vss_{self._table} USING vss0(
-   #                text_embedding({self.get_dimensionality()})
-   #              );
-   #          """
-   #      )
-   #      self._connection.execute(
-   #          f"""
-   #              CREATE TRIGGER IF NOT EXISTS embed_text
-   #              AFTER INSERT ON {self._table}
-   #              BEGIN
-   #                  INSERT INTO vss_{self._table}(rowid, text_embedding)
-   #                  VALUES (new.rowid, new.text_embedding)
-   #                  ;
-   #              END;
-   #          """
-   #      )
-   #      self._connection.commit()
-
-   #  def add_texts(
-   #      self,
-   #      texts: Iterable[str],
-   #      metadatas: Optional[List[dict]] = None,
-   #      **kwargs: Any,
-   #  ) -> List[str]:
-   #      """Add more texts to the vectorstore index.
-   #      Args:
-   #          texts: Iterable of strings to add to the vectorstore.
-   #          metadatas: Optional list of metadatas associated with the texts.
-   #          kwargs: vectorstore specific parameters
-   #      """
-   #      max_id = self._connection.execute(
-   #          f"SELECT max(rowid) as rowid FROM {self._table}"
-   #      ).fetchone()["rowid"]
-   #      if max_id is None:  # no text added yet
-   #          max_id = 0
-
-   #      embeds = self._embedding.embed_documents(list(texts))
-   #      if not metadatas:
-   #          metadatas = [{} for _ in texts]
-   #      data_input = [
-   #          (text, json.dumps(metadata), json.dumps(embed))
-   #          for text, metadata, embed in zip(texts, metadatas, embeds)
-   #      ]
-   #      self._connection.executemany(
-   #          f"INSERT INTO {self._table}(text, metadata, text_embedding) "
-   #          f"VALUES (?,?,?)",
-   #          data_input,
-   #      )
-   #      self._connection.commit()
-   #      # pulling every ids we just inserted
-   #      results = self._connection.execute(
-   #          f"SELECT rowid FROM {self._table} WHERE rowid > {max_id}"
-   #      )
-   #      return [row["rowid"] for row in results]
-
-   #  def similarity_search_with_score_by_vector(
-   #      self, embedding: List[float], k: int = 4, **kwargs: Any
-   #  ) -> List[Tuple[Document, float]]:
-   #      sql_query = f"""
-   #          SELECT
-   #              text,
-   #              metadata,
-   #              distance
-   #          FROM {self._table} e
-   #          INNER JOIN vss_{self._table} v on v.rowid = e.rowid
-   #          WHERE vss_search(
-   #            v.text_embedding,
-   #            vss_search_params('{json.dumps(embedding)}', {k})
-   #          )
-   #      """
-   #      cursor = self._connection.cursor()
-   #      cursor.execute(sql_query)
-   #      results = cursor.fetchall()
-
-   #      documents = []
-   #      for row in results:
-   #          metadata = json.loads(row["metadata"]) or {}
-   #          doc = Document(page_content=row["text"], metadata=metadata)
-   #          documents.append((doc, row["distance"]))
-
-   #      return documents
-
-   #  def similarity_search(
-   #      self, query: str, k: int = 4, **kwargs: Any
-   #  ) -> List[Document]:
-   #      """Return docs most similar to query."""
-   #      embedding = self._embedding.embed_query(query)
-   #      documents = self.similarity_search_with_score_by_vector(
-   #          embedding=embedding, k=k
-   #      )
-   #      return [doc for doc, _ in documents]
-
-   #  def similarity_search_with_score(
-   #      self, query: str, k: int = 4, **kwargs: Any
-   #  ) -> List[Tuple[Document, float]]:
-   #      """Return docs most similar to query."""
-   #      embedding = self._embedding.embed_query(query)
-   #      documents = self.similarity_search_with_score_by_vector(
-   #          embedding=embedding, k=k
-   #      )
-   #      return documents
-
-   #  def similarity_search_by_vector(
-   #      self, embedding: List[float], k: int = 4, **kwargs: Any
-   #  ) -> List[Document]:
-   #      documents = self.similarity_search_with_score_by_vector(
-   #          embedding=embedding, k=k
-   #      )
-   #      return [doc for doc, _ in documents]
-
     @classmethod
     def from_texts(
         cls: Type[Infinispan],
@@ -299,27 +165,5 @@ class Infinispan(VectorStore):
         configuration: dict[str, Any] = {"hosts" : ["127.0.0.1:11222"]}
     ) -> Infinispan:
         """Return VectorStore initialized from texts and embeddings."""
-        infinispan = cls(embedding=embedding)
+        infinispan = cls(embedding=embedding, configuration=configuration)
         return infinispan
-
-   #  @staticmethod
-   #  def create_connection(db_file: str) -> sqlite3.Connection:
-   #      import sqlite3
-
-   #      import sqlite_vss
-
-   #      connection = sqlite3.connect(db_file)
-   #      connection.row_factory = sqlite3.Row
-   #      connection.enable_load_extension(True)
-   #      sqlite_vss.load(connection)
-   #      connection.enable_load_extension(False)
-   #      return connection
-
-   #  def get_dimensionality(self) -> int:
-   #      """
-   #      Function that does a dummy embedding to figure out how many dimensions
-   #      this embedding function returns. Needed for the virtual table DDL.
-   #      """
-   #      dummy_text = "This is a dummy text"
-   #      dummy_embedding = self._embedding.embed_query(dummy_text)
-   #      return len(dummy_embedding)
