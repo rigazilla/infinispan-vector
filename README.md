@@ -18,13 +18,18 @@ available for this.
 - jupyter-lab
 - open the demo-book you want to run
 
+#### ispn_sentences_demo.ipynb
+Based on _all-MiniLM-L12-v2_ model. Relay on a 40k sentences db that you can use
+to do similarity search
+
+#### ispn_news_demo.ipynb
+Based on _all-MiniLM-L12-v2_ model. Relay on a 28k+ BBC news db that you can use
+to do similarity search
+
 #### ispn_embed_demo.ipynb
+Old demo maybe broken
 It's a simple demo with a trivial embedder function for color name:
 gived a color name it returns as a features vector the equivalent RGB code.
 An example of similarity search with Infinispan is then provided.
-
-#### ispn_sentences_demo.ipynb
-Based on _all-MiniLM-L12-v2_ model. It maps a bunch of sentences and runs
-some similarity search
 
 
