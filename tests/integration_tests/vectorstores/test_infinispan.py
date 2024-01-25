@@ -9,12 +9,12 @@ from tests.integration_tests.vectorstores.fake_embeddings import (
 )
 
 def _infinispan_from_texts() -> Infinispan:
-    return Infinispan.from_texts(embedding=RGBEmbeddings(),
+    return Infinispan.from_texts({}, embedding=RGBEmbeddings(),
                                  configuration={"lambda.content": lambda item: item["color"]})
 
 def test_infinispan_schema_post() -> None:
+    test_infinispan_schema_delete()
     infinispan = _infinispan_from_texts()
-    infinispan.req_cache_clear()
     data = '''
 /**
  * @Indexed
@@ -26,6 +26,7 @@ message vector {
 repeated float floatVector = 1;
 optional string texture = 2;
 optional string color = 3;
+optional string _key = 4;
 }
 '''
     output = infinispan.req_schema_post("vector.proto",data)
@@ -36,17 +37,15 @@ def test_infinispan_schema_delete() -> None:
     infinispan = _infinispan_from_texts()
     infinispan.req_cache_clear()
     output = infinispan.req_schema_delete("vector.proto")
-    assert output.status_code == 204
+    assert output.status_code in {204, 404}
 
-def test_infinispan_cache_delete() -> None:
-    infinispan = _infinispan_from_texts()
-    infinispan.req_cache_clear()
-    output = infinispan.req_cache_delete("embeddingvectors")
-    assert output.status_code == 204
+def test_cache_create_delete() -> None:
+    _cache_delete()
+    _cache_post()
+    _cache_delete()
 
-def test_cache_post() -> None:
+def _cache_post() -> None:
     infinispan = _infinispan_from_texts()
-    infinispan.req_cache_clear()
     data = '''
 {
   "distributed-cache": {
@@ -69,10 +68,17 @@ def test_cache_post() -> None:
 }
 '''
     output = infinispan.req_cache_post("embeddingvectors",data)
-    assert output.status_code == 200
+    assert (output.status_code == 200 or ("already exists" in output.text))
+
+def _cache_delete() -> None:
+    infinispan = _infinispan_from_texts()
+    output = infinispan.req_cache_delete("embeddingvectors")
+    assert output.status_code in {200,404}
 
 def test_infinispan_vectors_post_then_query() -> None:
     infinispan = _infinispan_from_texts()
+    test_infinispan_schema_post()
+    _cache_post()
     infinispan.req_cache_clear()
     test_add_texts()
     query_res = infinispan.req_query("from vector i where i.floatVector <-> [0.5,0.5,0.5]~2")
@@ -86,6 +92,8 @@ def test_infinispan_vectors_post_then_query() -> None:
 
 def test_infinispan_vectors_post_then_query_by_vector() -> None:
     infinispan = _infinispan_from_texts()
+    test_infinispan_schema_post()
+    _cache_post()
     infinispan.req_cache_clear()
     test_add_texts()
     docs = infinispan.similarity_search_by_vector([0.5,0.5,0.0],2)
@@ -104,14 +112,26 @@ def test_infinispan_similarity_search() -> None:
     output = infinispan.similarity_search("snow",2)
     assert output == [Document(page_content='white'), Document(page_content='red')]
 
+def test_put_get() -> None:
+    infinispan = _infinispan_from_texts()
+    test_infinispan_schema_post()
+    _cache_post()
+    infinispan.req_cache_clear()
+    metadata = {"_type": "vector", "_key": "1", "texture" : "matt", "color" : "red", "floatVector" : [0.0,0.0,1.0]}
+    infinispan.req_put("1", json.dumps(metadata))
+    response = infinispan.req_get("1")
+    res = json.loads(response.text)
+    assert res==metadata
+
 def test_add_texts() -> None:
     infinispan = _infinispan_from_texts()
     infinispan.req_cache_clear()
-    texts =    [{"_key": 1, "_type": "vector", "texture" : "matt", "color" : "red"},
-                {"_key": 2, "_type": "vector", "texture": "glossy", "color": "green"},
-                {"_key": 3, "_type": "vector", "texture": "silk", "color": "blue"},
-                {"_key": 4, "_type": "vector", "texture": "matt", "color": "black"},
-                {"_key": 5, "_type": "vector", "texture": "raw", "color": "white"},
-                                 ]
-    res = infinispan.add_texts(texts)
+    metadatas = [{"_key": 1, "_type": "vector", "texture" : "matt", "color" : "red"},
+                {"_key": 2, "_type": "vector", "texture": "glossy", "color" : "green"},
+                {"_key": 3, "_type": "vector", "texture": "silk", "color" : "blue"},
+                {"_key": 4, "_type": "vector", "texture": "matt", "color" : "black"},
+                {"_key": 5, "_type": "vector", "texture": "raw", "color" : "white"}
+            ]
+    texts = ["red", "green", "blue", "black", "white"]
+    res = infinispan.add_texts(texts, metadatas)
     assert res == ["1","2","3","4","5"]

@@ -15,7 +15,7 @@ from typing import (
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_core.vectorstores import VectorStore
+from langchain_core.vectorstores import VectorStore, VST
 import requests
 import fjson
 
@@ -31,27 +31,6 @@ class Infinispan(VectorStore):
             from langchain_community.embeddings.openai import OpenAIEmbeddings
             ...
     """
-
-    def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None, **kwargs: Any) -> List[str]:
-        result = []
-        for text in texts:
-            key = self._to_key(text)
-            data = self._to_attributes(text)
-            vec = self._embedding.embed_query(self._to_content(data))
-            data["floatVector"] = vec
-            dataStr = json.dumps(data)
-            resp = self.req_put(key, dataStr)
-            result.append(key)
-        return result
-
-    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> List[Document]:
-        """Return docs most similar to query."""
-        embed = self._embedding.embed_query(query)
-        documents = self.similarity_search_with_score_by_vector(
-            embedding=embed, k=k
-        )
-        return [doc for doc, _ in documents]
-
 
     def __init__(
         self,
@@ -71,13 +50,41 @@ class Infinispan(VectorStore):
         if not isinstance(embedding, Embeddings):
             warnings.warn("embeddings input must be Embeddings object.")
         # self._to_content = lambda hit: hit["content"] or {}
-        self._to_key = configuration.get("lambda.key",lambda text: str(text["_key"]))
+        self._to_key = configuration.get("lambda.key",lambda text, meta: str(meta["_key"]))
         self._to_attributes = configuration.get("lambda.attributes",lambda item: {x:item[x] for x in item if x != '_key'})
         self._to_content =  configuration.get("lambda.content", lambda item: item["position"])
 
+    def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None, **kwargs: Any) -> List[str]:
+        result = []
+        embeds = self._embedding.embed_documents(texts)
+        if not metadatas:
+            metadatas = [{} for _ in texts]
+        data_input = [
+            (text, metadata, embed)
+            for text, metadata, embed in zip(texts, metadatas, embeds)
+        ]
+        for text, metadata, embed in data_input:
+            key = self._to_key(text, metadata)
+            data = {"_type": self._entity_name, "floatVector": embed}
+            data.update(metadata)
+            dataStr = json.dumps(data)
+            resp = self.req_put(key, dataStr)
+            result.append(key)
+        return result
+
+    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> List[Document]:
+        """Return docs most similar to query."""
+        embed = self._embedding.embed_query(query)
+        documents = self.similarity_search_with_score_by_vector(
+            embedding=embed, k=k
+        )
+        return [doc for doc, _ in documents]
+
+
+
     def similarity_search_by_vector(
         self, embedding, k = 4, **kwargs)  -> List[Document]:
-        query_str = "from "+self._entity_name+"v where v.floatVector <-> "+json.dumps(embedding)+"~"+str(k)
+        query_str = "from "+self._entity_name+" v where v.floatVector <-> "+json.dumps(embedding)+"~"+str(k)
         query_res = self.req_query(query_str)
         result = json.loads(query_res.text)
         return self.query_to_document(result)
@@ -133,6 +140,13 @@ class Infinispan(VectorStore):
         response = requests.put(api_url, data, headers= {"Content-Type" : "application/json"})
         return response
 
+    def req_get(self, key:str, cache_name = None) -> requests.Response:
+        if cache_name == None:
+            cache_name = self._cache_name
+        api_url = self._default_node + self._cache_url + "/" + cache_name + "/" + key
+        response = requests.get(api_url, headers= {"Content-Type" : "application/json"})
+        return response
+
     def req_schema_post(self, name, proto) -> requests.Response:
         api_url = self._default_node + self._schema_url + "/" + name
         response = requests.post(api_url, proto)
@@ -161,9 +175,14 @@ class Infinispan(VectorStore):
     @classmethod
     def from_texts(
         cls: Type[Infinispan],
+        texts: List[str],
         embedding: Embeddings,
-        configuration: dict[str, Any] = {"hosts" : ["127.0.0.1:11222"]}
+        metadatas: Optional[List[dict]] = None,
+        configuration: dict[str, Any] = {"hosts" : ["127.0.0.1:11222"]},
+        ** kwargs: Any
     ) -> Infinispan:
         """Return VectorStore initialized from texts and embeddings."""
         infinispan = cls(embedding=embedding, configuration=configuration)
+        if texts:
+            infinispan.add_texts(texts, metadatas)
         return infinispan
