@@ -400,6 +400,17 @@ marshmallow = ">=3.18.0,<4.0.0"
 typing-inspect = ">=0.4.0,<1"
 
 [[package]]
+name = "distro"
+version = "1.9.0"
+description = "Distro - an OS platform information API"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2"},
+    {file = "distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.0"
 description = "Backport of PEP 654 (exception groups)"
@@ -680,6 +691,62 @@ files = [
 [package.extras]
 docs = ["Sphinx"]
 test = ["objgraph", "psutil"]
+
+[[package]]
+name = "h11"
+version = "0.14.0"
+description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "h11-0.14.0-py3-none-any.whl", hash = "sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761"},
+    {file = "h11-0.14.0.tar.gz", hash = "sha256:8f19fbbe99e72420ff35c00b27a34cb9937e902a8b810e2c88300c6f0a3b699d"},
+]
+
+[[package]]
+name = "httpcore"
+version = "1.0.2"
+description = "A minimal low-level HTTP client."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "httpcore-1.0.2-py3-none-any.whl", hash = "sha256:096cc05bca73b8e459a1fc3dcf585148f63e534eae4339559c9b8a8d6399acc7"},
+    {file = "httpcore-1.0.2.tar.gz", hash = "sha256:9fc092e4799b26174648e54b74ed5f683132a464e95643b226e00c2ed2fa6535"},
+]
+
+[package.dependencies]
+certifi = "*"
+h11 = ">=0.13,<0.15"
+
+[package.extras]
+asyncio = ["anyio (>=4.0,<5.0)"]
+http2 = ["h2 (>=3,<5)"]
+socks = ["socksio (==1.*)"]
+trio = ["trio (>=0.22.0,<0.23.0)"]
+
+[[package]]
+name = "httpx"
+version = "0.26.0"
+description = "The next generation HTTP client."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "httpx-0.26.0-py3-none-any.whl", hash = "sha256:8915f5a3627c4d47b73e8202457cb28f1266982d1159bd5779d86a80c0eab1cd"},
+    {file = "httpx-0.26.0.tar.gz", hash = "sha256:451b55c30d5185ea6b23c2c793abf9bb237d2a7dfb901ced6ff69ad37ec1dfaf"},
+]
+
+[package.dependencies]
+anyio = "*"
+certifi = "*"
+httpcore = "==1.*"
+idna = "*"
+sniffio = "*"
+
+[package.extras]
+brotli = ["brotli", "brotlicffi"]
+cli = ["click (==8.*)", "pygments (==2.*)", "rich (>=10,<14)"]
+http2 = ["h2 (>=3,<5)"]
+socks = ["socksio (==1.*)"]
 
 [[package]]
 name = "huggingface-hub"
@@ -987,19 +1054,19 @@ extended-testing = ["aiosqlite (>=0.19.0,<0.20.0)", "aleph-alpha-client (>=2.15.
 
 [[package]]
 name = "langchain-core"
-version = "0.1.8"
+version = "0.1.16"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
-    {file = "langchain_core-0.1.8-py3-none-any.whl", hash = "sha256:f4d1837d6d814ed36528b642211933d1f0bd84e1eff361f4630a8c750acc27d0"},
-    {file = "langchain_core-0.1.8.tar.gz", hash = "sha256:93ab72f5ab202526310fad389a45626501fd76ecf56d451111c0d4abe8183407"},
+    {file = "langchain_core-0.1.16-py3-none-any.whl", hash = "sha256:c1b2e7363771d64a72cb45032ed5a46facf67de005017fb5e74595cbf433f834"},
+    {file = "langchain_core-0.1.16.tar.gz", hash = "sha256:8cb546eed318009ee1a8a381d108074eddf0395ae61eb243db00d76e1e265e89"},
 ]
 
 [package.dependencies]
 anyio = ">=3,<5"
 jsonpatch = ">=1.33,<2.0"
-langsmith = ">=0.0.63,<0.1.0"
+langsmith = ">=0.0.83,<0.1"
 packaging = ">=23.2,<24.0"
 pydantic = ">=1,<3"
 PyYAML = ">=5.3"
@@ -1010,14 +1077,31 @@ tenacity = ">=8.1.0,<9.0.0"
 extended-testing = ["jinja2 (>=3,<4)"]
 
 [[package]]
+name = "langchain-openai"
+version = "0.0.5"
+description = "An integration package connecting OpenAI and LangChain"
+optional = false
+python-versions = ">=3.8.1,<4.0"
+files = [
+    {file = "langchain_openai-0.0.5-py3-none-any.whl", hash = "sha256:93b37dfac274adad65e46d5d6e71411e00c6984bcc5e10f1d6bb58e7944dc01b"},
+    {file = "langchain_openai-0.0.5.tar.gz", hash = "sha256:f317fee5b652949ad96ad7edf8ef7a044a6a3f0cc71d1e12f9d5261789fd68c4"},
+]
+
+[package.dependencies]
+langchain-core = ">=0.1.16,<0.2"
+numpy = ">=1,<2"
+openai = ">=1.10.0,<2.0.0"
+tiktoken = ">=0.5.2,<0.6.0"
+
+[[package]]
 name = "langsmith"
-version = "0.0.77"
+version = "0.0.83"
 description = "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform."
 optional = false
 python-versions = ">=3.8.1,<4.0"
 files = [
-    {file = "langsmith-0.0.77-py3-none-any.whl", hash = "sha256:750c0aa9177240c64e131d831e009ed08dd59038f7cabbd0bbcf62ccb7c8dcac"},
-    {file = "langsmith-0.0.77.tar.gz", hash = "sha256:c4c8d3a96ad8671a41064f3ccc673e2e22a4153e823b19f915c9c9b8a4f33a2c"},
+    {file = "langsmith-0.0.83-py3-none-any.whl", hash = "sha256:a5bb7ac58c19a415a9d5f51db56dd32ee2cd7343a00825bbc2018312eb3d122a"},
+    {file = "langsmith-0.0.83.tar.gz", hash = "sha256:94427846b334ad9bdbec3266fee12903fe9f5448f628667689d0412012aaf392"},
 ]
 
 [package.dependencies]
@@ -1501,6 +1585,29 @@ files = [
     {file = "nvidia_nvtx_cu12-12.1.105-py3-none-manylinux1_x86_64.whl", hash = "sha256:dc21cf308ca5691e7c04d962e213f8a4aa9bbfa23d95412f452254c2caeb09e5"},
     {file = "nvidia_nvtx_cu12-12.1.105-py3-none-win_amd64.whl", hash = "sha256:65f4d98982b31b60026e0e6de73fbdfc09d08a96f4656dd3665ca616a11e1e82"},
 ]
+
+[[package]]
+name = "openai"
+version = "1.10.0"
+description = "The official Python library for the openai API"
+optional = false
+python-versions = ">=3.7.1"
+files = [
+    {file = "openai-1.10.0-py3-none-any.whl", hash = "sha256:aa69e97d0223ace9835fbf9c997abe9ee95318f684fd2de6d02c870700c71ebc"},
+    {file = "openai-1.10.0.tar.gz", hash = "sha256:208886cb501b930dc63f48d51db9c15e5380380f80516d07332adad67c9f1053"},
+]
+
+[package.dependencies]
+anyio = ">=3.5.0,<5"
+distro = ">=1.7.0,<2"
+httpx = ">=0.23.0,<1"
+pydantic = ">=1.9.0,<3"
+sniffio = "*"
+tqdm = ">4"
+typing-extensions = ">=4.7,<5"
+
+[package.extras]
+datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
 
 [[package]]
 name = "packaging"
@@ -2396,6 +2503,58 @@ files = [
 ]
 
 [[package]]
+name = "tiktoken"
+version = "0.5.2"
+description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "tiktoken-0.5.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:8c4e654282ef05ec1bd06ead22141a9a1687991cef2c6a81bdd1284301abc71d"},
+    {file = "tiktoken-0.5.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7b3134aa24319f42c27718c6967f3c1916a38a715a0fa73d33717ba121231307"},
+    {file = "tiktoken-0.5.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6092e6e77730929c8c6a51bb0d7cfdf1b72b63c4d033d6258d1f2ee81052e9e5"},
+    {file = "tiktoken-0.5.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:72ad8ae2a747622efae75837abba59be6c15a8f31b4ac3c6156bc56ec7a8e631"},
+    {file = "tiktoken-0.5.2-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:51cba7c8711afa0b885445f0637f0fcc366740798c40b981f08c5f984e02c9d1"},
+    {file = "tiktoken-0.5.2-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:3d8c7d2c9313f8e92e987d585ee2ba0f7c40a0de84f4805b093b634f792124f5"},
+    {file = "tiktoken-0.5.2-cp310-cp310-win_amd64.whl", hash = "sha256:692eca18c5fd8d1e0dde767f895c17686faaa102f37640e884eecb6854e7cca7"},
+    {file = "tiktoken-0.5.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:138d173abbf1ec75863ad68ca289d4da30caa3245f3c8d4bfb274c4d629a2f77"},
+    {file = "tiktoken-0.5.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:7388fdd684690973fdc450b47dfd24d7f0cbe658f58a576169baef5ae4658607"},
+    {file = "tiktoken-0.5.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a114391790113bcff670c70c24e166a841f7ea8f47ee2fe0e71e08b49d0bf2d4"},
+    {file = "tiktoken-0.5.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ca96f001e69f6859dd52926d950cfcc610480e920e576183497ab954e645e6ac"},
+    {file = "tiktoken-0.5.2-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:15fed1dd88e30dfadcdd8e53a8927f04e1f6f81ad08a5ca824858a593ab476c7"},
+    {file = "tiktoken-0.5.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:93f8e692db5756f7ea8cb0cfca34638316dcf0841fb8469de8ed7f6a015ba0b0"},
+    {file = "tiktoken-0.5.2-cp311-cp311-win_amd64.whl", hash = "sha256:bcae1c4c92df2ffc4fe9f475bf8148dbb0ee2404743168bbeb9dcc4b79dc1fdd"},
+    {file = "tiktoken-0.5.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b76a1e17d4eb4357d00f0622d9a48ffbb23401dcf36f9716d9bd9c8e79d421aa"},
+    {file = "tiktoken-0.5.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:01d8b171bb5df4035580bc26d4f5339a6fd58d06f069091899d4a798ea279d3e"},
+    {file = "tiktoken-0.5.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:42adf7d4fb1ed8de6e0ff2e794a6a15005f056a0d83d22d1d6755a39bffd9e7f"},
+    {file = "tiktoken-0.5.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c3f894dbe0adb44609f3d532b8ea10820d61fdcb288b325a458dfc60fefb7db"},
+    {file = "tiktoken-0.5.2-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:58ccfddb4e62f0df974e8f7e34a667981d9bb553a811256e617731bf1d007d19"},
+    {file = "tiktoken-0.5.2-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:58902a8bad2de4268c2a701f1c844d22bfa3cbcc485b10e8e3e28a050179330b"},
+    {file = "tiktoken-0.5.2-cp312-cp312-win_amd64.whl", hash = "sha256:5e39257826d0647fcac403d8fa0a474b30d02ec8ffc012cfaf13083e9b5e82c5"},
+    {file = "tiktoken-0.5.2-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:8bde3b0fbf09a23072d39c1ede0e0821f759b4fa254a5f00078909158e90ae1f"},
+    {file = "tiktoken-0.5.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:2ddee082dcf1231ccf3a591d234935e6acf3e82ee28521fe99af9630bc8d2a60"},
+    {file = "tiktoken-0.5.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:35c057a6a4e777b5966a7540481a75a31429fc1cb4c9da87b71c8b75b5143037"},
+    {file = "tiktoken-0.5.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c4a049b87e28f1dc60509f8eb7790bc8d11f9a70d99b9dd18dfdd81a084ffe6"},
+    {file = "tiktoken-0.5.2-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:5bf5ce759089f4f6521ea6ed89d8f988f7b396e9f4afb503b945f5c949c6bec2"},
+    {file = "tiktoken-0.5.2-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:0c964f554af1a96884e01188f480dad3fc224c4bbcf7af75d4b74c4b74ae0125"},
+    {file = "tiktoken-0.5.2-cp38-cp38-win_amd64.whl", hash = "sha256:368dd5726d2e8788e47ea04f32e20f72a2012a8a67af5b0b003d1e059f1d30a3"},
+    {file = "tiktoken-0.5.2-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:a2deef9115b8cd55536c0a02c0203512f8deb2447f41585e6d929a0b878a0dd2"},
+    {file = "tiktoken-0.5.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:2ed7d380195affbf886e2f8b92b14edfe13f4768ff5fc8de315adba5b773815e"},
+    {file = "tiktoken-0.5.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c76fce01309c8140ffe15eb34ded2bb94789614b7d1d09e206838fc173776a18"},
+    {file = "tiktoken-0.5.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:60a5654d6a2e2d152637dd9a880b4482267dfc8a86ccf3ab1cec31a8c76bfae8"},
+    {file = "tiktoken-0.5.2-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:41d4d3228e051b779245a8ddd21d4336f8975563e92375662f42d05a19bdff41"},
+    {file = "tiktoken-0.5.2-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:a5c1cdec2c92fcde8c17a50814b525ae6a88e8e5b02030dc120b76e11db93f13"},
+    {file = "tiktoken-0.5.2-cp39-cp39-win_amd64.whl", hash = "sha256:84ddb36faedb448a50b246e13d1b6ee3437f60b7169b723a4b2abad75e914f3e"},
+    {file = "tiktoken-0.5.2.tar.gz", hash = "sha256:f54c581f134a8ea96ce2023ab221d4d4d81ab614efa0b2fbce926387deb56c80"},
+]
+
+[package.dependencies]
+regex = ">=2022.1.18"
+requests = ">=2.26.0"
+
+[package.extras]
+blobfile = ["blobfile (>=2)"]
+
+[[package]]
 name = "tokenizers"
 version = "0.15.0"
 description = ""
@@ -2888,4 +3047,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "9d7d1094ab95f98aee3286d355621c5b3c593c8c057a715bca77b580441efbbf"
+content-hash = "d906268f504b1705ee168da24b12b284d501e3ef6de865001fe740027df73dad"
