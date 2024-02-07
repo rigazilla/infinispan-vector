@@ -24,6 +24,9 @@ from langchain.text_splitter import CharacterTextSplitter
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 texts = text_splitter.split_documents(documents)
 
+from infinispan_vector.infinispanvs import Infinispan, InfinispanVS
+ispn = Infinispan()
+
 # Configure Infinispan with proto schema and cache
 schema_vector = '''
 /**
@@ -34,16 +37,11 @@ message vector {
  * @Vector(dimension=384)
  */
 repeated float floatVector = 1;
-optional int32 _key = 2;
-optional int32 page = 3;
-optional string source = 4;
-optional string content = 5;
+optional int32 page = 2;
+optional string source = 3;
+optional string content = 4;
 }
 '''
-
-from infinispan_vector.infinispanvs import Infinispan, InfinispanVS
-
-ispn = Infinispan()
 
 ispn.req_schema_delete("vector.proto")
 output = ispn.req_schema_post("vector.proto",schema_vector)
@@ -80,11 +78,8 @@ ispn.req_cache_delete("vector")
 output= ispn.req_cache_post("vector", cache_def)
 assert output.status_code in (200, 204)
 
-i=0
 for text in texts:
-    text.metadata.update({"_key": i})
     text.metadata.update({"content": text.page_content})
-    i=i+1
 
 # Replacing OpenAI embeddings with HuggingFace model due to vector dimension limit
 #embeddings = OpenAIEmbeddings()

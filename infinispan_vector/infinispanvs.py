@@ -18,6 +18,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore, VST
 import requests
 import json
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -123,10 +124,7 @@ class InfinispanVS(VectorStore):
         self._embedding = embedding
         if not isinstance(embedding, Embeddings):
             warnings.warn("embeddings input must be Embeddings object.")
-        # self._to_content = lambda hit: hit["content"] or {}
-        self._to_key = configuration.get("lambda.key", lambda text, meta: str(meta["_key"]))
-        self._to_attributes = configuration.get("lambda.attributes",
-                                                lambda item: {x: item[x] for x in item if x != '_key'})
+        self._get_key = configuration.get("lambda.key", lambda text, meta: str(uuid.uuid4()))
         self._to_content = configuration.get("lambda.content", lambda item: item["position"])
 
     def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None, **kwargs: Any) -> List[str]:
@@ -139,7 +137,7 @@ class InfinispanVS(VectorStore):
             for text, metadata, embed in zip(texts, metadatas, embeds)
         ]
         for text, metadata, embed in data_input:
-            key = self._to_key(text, metadata)
+            key = self._get_key(text, metadata)
             data = {"_type": self._entity_name, "floatVector": embed}
             data.update(metadata)
             dataStr = json.dumps(data)
