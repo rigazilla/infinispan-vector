@@ -10,7 +10,6 @@ import json
 pdf_folder_path = '/home/rigazilla/ai/data/ai-pdf'
 loaders = [PyPDFLoader(os.path.join(pdf_folder_path, fn)) for fn in os.listdir(pdf_folder_path)]
 documents = []
-
 for loader in tqdm(loaders):
     try:
         documents.extend(loader.load())
@@ -100,7 +99,7 @@ embeddings = HuggingFaceEmbeddings(
     encode_kwargs=encode_kwargs # Pass the encoding options
 )
 vector_store = InfinispanVS.from_documents(documents=texts, embedding=embeddings,
-                                           configuration={"lambda.content": lambda item: item["content"], "cache_name": "vector", "entity_name" : "vector"}, ispn=ispn)
+                                           configuration={"lambda.content": lambda item: item["content"], "cache_name": "vector", "entity_name" : "vector"}, infinispan=ispn)
 
 from langchain.indexes import VectorstoreIndexCreator
 retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k":2})
