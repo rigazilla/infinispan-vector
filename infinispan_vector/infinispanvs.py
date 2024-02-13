@@ -25,6 +25,14 @@ REST_TIMEOUT = 10
 
 
 class Infinispan:
+    """`Infinispan` REST interface.
+
+    This class exposes the Infinispan operations needed to
+    create and setup a vector db.
+
+    You need a running Infinispan (15+) server without authentication.
+    You can easily start one see: https://github.com/rigazilla/infinispan-vector
+    """
     def __init__(
             self,
             configuration: Optional[dict[str, Any]] = None,
@@ -37,12 +45,20 @@ class Infinispan:
         self._schema_url = str(self._configuration.get("cache_url", "/rest/v2/schemas"))
         self._use_post_for_query = str(self._configuration.get("use_post_for_query", True))
 
-    def req_query(self, query_str, cache_name, local=False) -> requests.Response:
+    def req_query(self, query, cache_name, local=False) -> requests.Response:
+        """ Request a query
+        Args:
+            query(str): query requested
+            cache_name(str): name of the target cache
+            local(boolean): whether the query is local to clustered
+        Returns:
+            An http Response containing the result set or errors
+        """
         if self._use_post_for_query:
-            return self.req_query_post(query_str, cache_name, local)
-        return self.req_query_get(query_str, cache_name, local)
+            return self._req_query_post(query, cache_name, local)
+        return self._req_query_get(query, cache_name, local)
 
-    def req_query_post(self, query_str, cache_name, local=False) -> requests.Response:
+    def _req_query_post(self, query_str, cache_name, local=False) -> requests.Response:
         api_url = (self._default_node + self._cache_url + "/" + cache_name
                    + "?action=search&local=" + str(local))
         data = {"query": query_str}
@@ -51,64 +67,144 @@ class Infinispan:
                                  timeout=REST_TIMEOUT)
         return response
 
-    def req_query_get(self, query_str, cache_name, local=False) -> requests.Response:
+    def _req_query_get(self, query_str, cache_name, local=False) -> requests.Response:
         api_url = (self._default_node + self._cache_url + "/" + cache_name + "?action=search&query="
                    + query_str + "&local=" + str(local))
         response = requests.get(api_url, timeout=REST_TIMEOUT)
         return response
 
     def req_post(self, key, data, cache_name) -> requests.Response:
+        """ Post an entry
+        Args:
+            key(str): key of the entry
+            data(str): content of the entry in json format
+            cache_name(str): target cache
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._cache_url + "/" + cache_name + "/" + key
         response = requests.post(api_url, data, headers={"Content-Type": "application/json"},
                                  timeout=REST_TIMEOUT)
         return response
 
     def req_put(self, key: str, data, cache_name) -> requests.Response:
+        """ Put an entry
+        Args:
+            key(str): key of the entry
+            data(str): content of the entry in json format
+            cache_name(str): target cache
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._cache_url + "/" + cache_name + "/" + key
         response = requests.put(api_url, data, headers={"Content-Type": "application/json"},
                                 timeout=REST_TIMEOUT)
         return response
 
     def req_get(self, key: str, cache_name) -> requests.Response:
+        """ Get an entry
+        Args:
+            key(str): key of the entry
+            cache_name(str): target cache
+        Returns:
+            An http Response containing the entry or errors
+        """
         api_url = self._default_node + self._cache_url + "/" + cache_name + "/" + key
         response = requests.get(api_url, headers={"Content-Type": "application/json"},
                                 timeout=REST_TIMEOUT)
         return response
 
     def req_schema_post(self, name, proto) -> requests.Response:
+        """ Deploy a schema
+        Args:
+            name(str): name of the schema. Will be used as a key
+            proto(str): protobuf schema
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._schema_url + "/" + name
         response = requests.post(api_url, proto, timeout=REST_TIMEOUT)
         return response
 
     def req_cache_post(self, name, config) -> requests.Response:
+        """ Create a cache
+        Args:
+            name(str): name of the cache.
+            config(str): configuration of the cache.
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._cache_url + "/" + name
         response = requests.post(api_url, config, headers={"Content-Type": "application/json"},
                                  timeout=REST_TIMEOUT)
         return response
 
     def req_schema_delete(self, name) -> requests.Response:
+        """ Delete a schema
+        Args:
+            name(str): name of the schema.
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._schema_url + "/" + name
         response = requests.delete(api_url, timeout=REST_TIMEOUT)
         return response
 
     def req_cache_delete(self, name) -> requests.Response:
+        """ Delete a cache
+        Args:
+            name(str): name of the cache.
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._cache_url + "/" + name
         response = requests.delete(api_url, timeout=REST_TIMEOUT)
         return response
 
     def req_cache_clear(self, cache_name) -> requests.Response:
+        """ Clear a cache
+        Args:
+            name(str): name of the cache.
+        Returns:
+            An http Response containing the result of the operation
+        """
         api_url = self._default_node + self._cache_url + "/" + cache_name + "?action=clear"
         response = requests.post(api_url, timeout=REST_TIMEOUT)
         return response
 
 
 class InfinispanVS(VectorStore):
-    """Wrapper around Infinispan (15+) as a vector database.
+    """`Infinispan` VectorStore interface.
+
+        This class exposes the method to present Infinispan as a
+        VectorStore
+
     Example:
-        .. code-block:: python
+        ... code-block:: python
             from langchain_community.vectorstores import InfinispanVS
-            from langchain_community.embeddings.openai import OpenAIEmbeddings
+            from mymodels import RGBEmbeddings
             ...
+            vectorDb = InfinispanVS.from_documents(docs,
+                            embedding=RGBEmbeddings(),
+                            configuration={ "output_fields": ["texture", "color"],
+                                            "lambda.key": lambda text,meta: str(meta["_key"]),
+                                            "lambda.content": lambda item: item["color"]})
+
+        or
+
+        ... code-block:: python
+            from langchain_community.vectorstores import InfinispanVS
+            from mymodels import RGBEmbeddings
+            ...
+            ispn = Infinispan()
+            # configure Infinispan here
+
+            vectorDb = InfinispanVS.from_documents(docs,
+                            embedding=RGBEmbeddings(),
+                            configuration={ "output_fields": ["texture", "color"],
+                                            "lambda.key": lambda text,meta: str(meta["_key"]),
+                                            "lambda.content": lambda item: item["color"]},
+                                            ispn = ispn)
     """
 
     def __init__(
@@ -129,6 +225,7 @@ class InfinispanVS(VectorStore):
             warnings.warn("embeddings input must be Embeddings object.")
         self._get_key = configuration.get("lambda.key", lambda text, meta: str(uuid.uuid4()))
         self._to_content = configuration.get("lambda.content", lambda item: item["position"])
+        self._output_fields = configuration.get("output_fields")
 
     def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None,
                   **kwargs: Any) -> List[str]:
@@ -148,35 +245,72 @@ class InfinispanVS(VectorStore):
 
     def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> List[Document]:
         """Return docs most similar to query."""
+        documents = self.similarity_search_with_score(
+            query=query, k=k
+        )
+        return [doc for doc, _ in documents]
+
+
+    def similarity_search_with_score(
+        self,
+        query: str,
+        k: int = 4,
+        **kwargs: Any
+    ) -> List[Tuple[Document, float]]:
+        """Perform a search on a query string and return results with score.
+
+        Args:
+            query (str): The text being searched.
+            k (int, optional): The amount of results to return. Defaults to 4.
+            param (dict): The search params for the specified index.
+                Defaults to None.
+
+        Returns:
+            List[Tuple[Document, float]]
+        """
         embed = self._embedding.embed_query(query)
         documents = self.similarity_search_with_score_by_vector(
             embedding=embed, k=k
         )
-        return [doc for doc, _ in documents]
+        return documents
+
 
     def similarity_search_by_vector(
             self, embedding, k=4, **kwargs) -> List[Document]:
-        query_str = ("from " + self._entity_name + " v where v.floatVector <-> "
-                     + json.dumps(embedding) + "~" + str(k))
-        query_res = self.ispn.req_query(query_str, self._cache_name)
-        result = json.loads(query_res.text)
-        return self.query_to_document(result)
+        res = self.similarity_search_with_score_by_vector(embedding, k)
+        return [doc for doc,_ in res]
 
     def similarity_search_with_score_by_vector(
             self, embedding: List[float], k: int = 4) -> List[Tuple[Document, float]]:
-        # Workaround, trunc float for http/get
-        query_str = ("from " + self._entity_name + " v where v.floatVector <-> "
-                     + json.dumps(embedding) + "~" + str(k))
+        """Return docs most similar to embedding vector.
+
+        Args:
+            embedding: Embedding to look up documents similar to.
+            k: Number of Documents to return. Defaults to 4.
+
+        Returns:
+            List of pair (Documents, score) most similar to the query vector.
+        """
+        if self._output_fields is None:
+            query_str = ("select v, score(v) from " + self._entity_name +
+                         " v where v.floatVector <-> " + json.dumps(embedding) + "~" + str(k))
+        else:
+            query_proj = "select "
+            for field in self._output_fields[:-1]:
+                query_proj = query_proj+"v."+field+","
+            query_proj = query_proj+self._output_fields[-1]
+            query_str = (query_proj+", score(v) from " + self._entity_name +
+                         " v where floatVector <-> " + json.dumps(embedding) + "~" + str(k))
         query_res = self.ispn.req_query(query_str, self._cache_name)
         result = json.loads(query_res.text)
-        return self.query_to_document(result)
+        return self._query_result_to_docs(result)
 
-    def query_to_document(self, result) -> List[Document]:
+    def _query_result_to_docs(self, result) -> List[Tuple[Document, float]]:
         documents = []
         for row in result["hits"]:
             hit = row["hit"] or {}
             doc = Document(page_content=self._to_content(hit))
-            documents.append((doc, 0))
+            documents.append((doc, hit["__ISPN_Score"]))
         return documents
 
     @classmethod

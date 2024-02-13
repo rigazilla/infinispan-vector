@@ -5,7 +5,7 @@ from langchain_core.documents import Document
 import requests
 from infinispan_vector import Infinispan, InfinispanVS
 from infinispan_vector.infinispanvs import Infinispan
-from tests.integration_tests.vectorstores.fake_embeddings import (
+from fake_embeddings import (
     RGBEmbeddings
 )
 
@@ -13,7 +13,7 @@ cache_name="embeddingvectors"
 def _get_ispn() -> (Infinispan, InfinispanVS):
     ispn = Infinispan()
     return (ispn, InfinispanVS.from_texts({}, embedding=RGBEmbeddings(),
-                                 configuration={"lambda.content": lambda item: item["color"]}, ispn=ispn))
+                                 configuration={"output_fields": ["texture", "color"], "lambda.key": lambda text, meta: str(meta["_key"]), "lambda.content": lambda item: item["color"]}, ispn=ispn))
 
 def test_infinispan_schema_post() -> None:
     test_infinispan_schema_delete()
@@ -93,6 +93,21 @@ def test_infinispan_vectors_post_then_query() -> None:
     vectors.sort()
     assert vectors == ['green', 'red']
 
+def test_infinispan_vectors_post_then_query_with_score() -> None:
+    infinispan, vs = _get_ispn()
+    test_infinispan_schema_post()
+    _cache_post()
+    infinispan.req_cache_clear(cache_name)
+    test_add_texts()
+    query_res = infinispan.req_query("select i.texture, i.color, score(i) from vector i where i.floatVector <-> [0.5,0.5,0.5]~2", cache_name)
+    assert query_res.status_code == 200
+    str = query_res.content.decode("utf-8")
+    jOut = json.loads(str)
+    assert jOut["hit_count"] == 2
+    vectors = [x["hit"]["color"] for x in jOut["hits"]]
+    vectors.sort()
+    assert vectors == ['green', 'red']
+
 def test_infinispan_vectors_post_then_query_by_vector() -> None:
     infinispan, vs = _get_ispn()
     test_infinispan_schema_post()
@@ -100,9 +115,22 @@ def test_infinispan_vectors_post_then_query_by_vector() -> None:
     infinispan.req_cache_clear(cache_name)
     test_add_texts()
     docs = vs.similarity_search_by_vector([0.5,0.5,0.0],2)
-    assert docs == [(Document(page_content='green'), 0), (Document(page_content='red'), 0)]
+    assert docs == [Document(page_content='green'), Document(page_content='red')]
 
 def test_infinispan_similarity_search() -> None:
+    infinispan, vs = _get_ispn()
+    infinispan.req_cache_clear(cache_name)
+    test_add_texts()
+    output = vs.similarity_search("orange",2)
+    assert output == [Document(page_content='red'), Document(page_content='green')]
+    output = vs.similarity_search("purple",2)
+    assert output == [Document(page_content='red'), Document(page_content='blue')]
+    output = vs.similarity_search("lime",2)
+    assert output == [Document(page_content='green'), Document(page_content='black')]
+    output = vs.similarity_search("snow",2)
+    assert output == [Document(page_content='white'), Document(page_content='red')]
+
+def test_infinispan_similarity_search_with_score() -> None:
     infinispan, vs = _get_ispn()
     infinispan.req_cache_clear(cache_name)
     test_add_texts()

@@ -7,17 +7,7 @@
 
    <cache-container name="default" statistics="true">
       <transport cluster="${infinispan.cluster.name:cluster}" stack="${infinispan.cluster.stack:tcp}" node-name="${infinispan.node.name:}"/>
-      <distributed-cache name="oldembeddingvectors"
-             statistics="true">
-  <encoding media-type="application/x-protostream"/>
-  <indexing enabled="true"
-            storage="local-heap">
-    <index-reader refresh-interval="1000"/>
-    <indexed-entities>
-      <indexed-entity>vector</indexed-entity>
-    </indexed-entities>
-  </indexing>
-</distributed-cache>
+      <distributed-cache name="myCache" statistics="true"/>
    </cache-container>
 
    <server xmlns="urn:infinispan:server:15.0">
