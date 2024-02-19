@@ -303,7 +303,7 @@ class InfinispanVS(VectorStore):
       "startup-mode": "AUTO",
       "indexing-mode": "AUTO",
       "indexed-entities": [
-        "vector"
+        "'''+ self._entity_name+ '''"
       ]
     }
   }

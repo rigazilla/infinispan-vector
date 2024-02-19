@@ -48,30 +48,9 @@ assert json.loads(output.text)["error"] is None
 
 # Creating an InfinispanVS cache to store vectors
 
-cache_def = '''
-{
-  "distributed-cache": {
-    "owners": "2",
-    "mode": "SYNC",
-    "statistics": true,
-    "encoding": {
-      "media-type": "application/x-protostream"
-    },
-    "indexing": {
-      "enabled": true,
-      "storage": "filesystem",
-      "startup-mode": "AUTO",
-      "indexing-mode": "AUTO",
-      "indexed-entities": [
-        "vector"
-      ]
-    }
-  }
-}
-'''
 
 ispnVS.cache_delete()
-output= ispnVS.cache_create(cache_def)
+output= ispnVS.cache_create()
 assert output.status_code in (200, 204)
 ispnVS.cache_index_clear()
 
