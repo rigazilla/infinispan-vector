@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import (
     Any,
     Iterable,
@@ -28,11 +27,12 @@ class Infinispan:
     """`Infinispan` REST interface.
 
     This class exposes the Infinispan operations needed to
-    create and setup a vector db.
+    create and set up a vector db.
 
     You need a running Infinispan (15+) server without authentication.
     You can easily start one see: https://github.com/rigazilla/infinispan-vector
     """
+
     def __init__(
             self,
             configuration: Optional[dict[str, Any]] = None,
@@ -164,13 +164,35 @@ class Infinispan:
     def req_cache_clear(self, cache_name) -> requests.Response:
         """ Clear a cache
         Args:
-            name(str): name of the cache.
+            cache_name(str): name of the cache.
         Returns:
             An http Response containing the result of the operation
         """
         api_url = self._default_node + self._cache_url + "/" + cache_name + "?action=clear"
         response = requests.post(api_url, timeout=REST_TIMEOUT)
         return response
+
+    def req_index_clear(self, cache_name) -> requests.Response:
+        """ Clear an index on a cache
+        Args:
+            cache_name(str): name of the cache.
+        Returns:
+            An http Response containing the result of the operation
+        """
+        api_url = (self._default_node + self._cache_url + "/" + cache_name
+                   + "/search/indexes?action=clear")
+        return requests.post(api_url, timeout=REST_TIMEOUT)
+
+    def req_index_reindex(self, cache_name) -> requests.Response:
+        """ Rebuild index on a cache
+        Args:
+            cache_name(str): name of the cache.
+        Returns:
+            An http Response containing the result of the operation
+        """
+        api_url = (self._default_node + self._cache_url + "/" + cache_name
+                   + "/search/indexes?action=reindex")
+        return requests.post(api_url, timeout=REST_TIMEOUT)
 
 
 class InfinispanVS(VectorStore):
@@ -196,7 +218,7 @@ class InfinispanVS(VectorStore):
             from langchain_community.vectorstores import InfinispanVS
             from mymodels import RGBEmbeddings
             ...
-            ispn = Infinispan()
+            ispnVS = Infinispan()
             # configure Infinispan here
 
             vectorDb = InfinispanVS.from_documents(docs,
@@ -204,28 +226,116 @@ class InfinispanVS(VectorStore):
                             configuration={ "output_fields": ["texture", "color"],
                                             "lambda.key": lambda text,meta: str(meta["_key"]),
                                             "lambda.content": lambda item: item["color"]},
-                                            ispn = ispn)
+                                            ispnVS = ispnVS)
     """
 
     def __init__(
             self,
-            embedding,
-            ispn: Infinispan,
+            embedding: Optional[Embeddings] = None,
             configuration: Optional[dict[str, Any]] = None,
+            ids: Optional[List[str]] = None,
+            clear_old: Optional[bool] = True
     ):
-        if ispn is not None:
-            self.ispn = ispn
-        else:
-            self.ispn = Infinispan(configuration=configuration)
+        self.ispn = Infinispan(configuration=configuration)
         self._configuration = configuration or {}
-        self._cache_name = str(self._configuration.get("cache_name", "embeddingvectors"))
+        self._cache_name = str(self._configuration.get("cache_name", "vector"))
         self._entity_name = str(self._configuration.get("entity_name", "vector"))
         self._embedding = embedding
-        if not isinstance(embedding, Embeddings):
-            warnings.warn("embeddings input must be Embeddings object.")
-        self._get_key = configuration.get("lambda.key", lambda text, meta: str(uuid.uuid4()))
-        self._to_content = configuration.get("lambda.content", lambda item: item["position"])
-        self._output_fields = configuration.get("output_fields")
+        self._textfield = self._configuration.get("textfield", "text")
+        self._vectorfield = self._configuration.get("vectorfield", "vector")
+        self._to_content = self._configuration.get("lambda.content",
+                                                   lambda item: self._default_content(item))
+        self._to_metadata = self._configuration.get("lambda.metadata",
+                                                    lambda item: self._default_metadata(item))
+        self._output_fields = self._configuration.get("output_fields")
+        self._ids = ids
+        if clear_old:
+            self.ispn.req_cache_clear(self._cache_name)
+
+    def _default_metadata(self, item):
+        meta = dict(item)
+        meta.pop(self._vectorfield, None)
+        meta.pop(self._textfield, None)
+        meta.pop("_type", None)
+        return meta
+
+    def _default_content(self, item: dict[str, Any]):
+        return item.get(self._textfield)
+
+    def schema_create(self, proto) -> requests.Response:
+        """ Deploy the schema for the vector db
+        Args:
+            proto(str): protobuf schema
+        Returns:
+            An http Response containing the result of the operation
+        """
+        return self.ispn.req_schema_post(self._entity_name+".proto", proto)
+
+    def schema_delete(self) -> requests.Response:
+        """ Delete the schema for the vector db
+        Returns:
+            An http Response containing the result of the operation
+        """
+        return self.ispn.req_schema_delete(self._entity_name+".proto")
+
+    def cache_create(self, config=None) -> requests.Response:
+        """ Create the cache for the vector db
+        Args:
+            config(str): configuration of the cache.
+        Returns:
+            An http Response containing the result of the operation
+        """
+        if config is None:
+            config = '''
+            {
+  "distributed-cache": {
+    "owners": "2",
+    "mode": "SYNC",
+    "statistics": true,
+    "encoding": {
+      "media-type": "application/x-protostream"
+    },
+    "indexing": {
+      "enabled": true,
+      "storage": "filesystem",
+      "startup-mode": "AUTO",
+      "indexing-mode": "AUTO",
+      "indexed-entities": [
+        "vector"
+      ]
+    }
+  }
+}
+'''
+        return self.ispn.req_cache_post(self._cache_name, config)
+
+    def cache_delete(self) -> requests.Response:
+        """ Delete the cache for the vector db
+        Returns:
+            An http Response containing the result of the operation
+        """
+        return self.ispn.req_cache_delete(self._cache_name)
+
+    def cache_clear(self) -> requests.Response:
+        """ Clear the cache for the vector db
+        Returns:
+            An http Response containing the result of the operation
+        """
+        return self.ispn.req_cache_clear(self._cache_name)
+
+    def cache_index_clear(self) -> requests.Response:
+        """ Clear the index for the vector db
+        Returns:
+            An http Response containing the result of the operation
+        """
+        return self.ispn.req_index_clear(self._cache_name)
+
+    def cache_index_reindex(self) -> requests.Response:
+        """ Rebuild the for the vector db
+        Returns:
+            An http Response containing the result of the operation
+        """
+        return self.ispn.req_index_reindex(self._cache_name)
 
     def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None,
                   **kwargs: Any) -> List[str]:
@@ -233,10 +343,10 @@ class InfinispanVS(VectorStore):
         embeds = self._embedding.embed_documents(list(texts))
         if not metadatas:
             metadatas = [{} for _ in texts]
-        data_input = list(zip(texts, metadatas, embeds))
-        for text, metadata, embed in data_input:
-            key = self._get_key(text, metadata)
-            data = {"_type": self._entity_name, "floatVector": embed}
+        ids = self._ids or [str(uuid.uuid4()) for _ in texts]
+        data_input = list(zip(metadatas, embeds, ids))
+        for metadata, embed, key in data_input:
+            data = {"_type": self._entity_name, self._vectorfield: embed}
             data.update(metadata)
             data_str = json.dumps(data)
             self.ispn.req_put(key, data_str, self._cache_name)
@@ -250,20 +360,17 @@ class InfinispanVS(VectorStore):
         )
         return [doc for doc, _ in documents]
 
-
     def similarity_search_with_score(
-        self,
-        query: str,
-        k: int = 4,
-        **kwargs: Any
+            self,
+            query: str,
+            k: int = 4,
+            **kwargs: Any
     ) -> List[Tuple[Document, float]]:
         """Perform a search on a query string and return results with score.
 
         Args:
             query (str): The text being searched.
             k (int, optional): The amount of results to return. Defaults to 4.
-            param (dict): The search params for the specified index.
-                Defaults to None.
 
         Returns:
             List[Tuple[Document, float]]
@@ -274,11 +381,10 @@ class InfinispanVS(VectorStore):
         )
         return documents
 
-
     def similarity_search_by_vector(
             self, embedding, k=4, **kwargs) -> List[Document]:
         res = self.similarity_search_with_score_by_vector(embedding, k)
-        return [doc for doc,_ in res]
+        return [doc for doc, _ in res]
 
     def similarity_search_with_score_by_vector(
             self, embedding: List[float], k: int = 4) -> List[Tuple[Document, float]]:
@@ -293,14 +399,16 @@ class InfinispanVS(VectorStore):
         """
         if self._output_fields is None:
             query_str = ("select v, score(v) from " + self._entity_name +
-                         " v where v.floatVector <-> " + json.dumps(embedding) + "~" + str(k))
+                         " v where v."+self._vectorfield+" <-> "
+                         + json.dumps(embedding) + "~" + str(k))
         else:
             query_proj = "select "
             for field in self._output_fields[:-1]:
-                query_proj = query_proj+"v."+field+","
-            query_proj = query_proj+self._output_fields[-1]
-            query_str = (query_proj+", score(v) from " + self._entity_name +
-                         " v where floatVector <-> " + json.dumps(embedding) + "~" + str(k))
+                query_proj = query_proj + "v." + field + ","
+            query_proj = query_proj + "v."+self._output_fields[-1]
+            query_str = (query_proj + ", score(v) from " + self._entity_name +
+                         " v where v."+self._vectorfield+" <-> "
+                         + json.dumps(embedding) + "~" + str(k))
         query_res = self.ispn.req_query(query_str, self._cache_name)
         result = json.loads(query_res.text)
         return self._query_result_to_docs(result)
@@ -309,8 +417,13 @@ class InfinispanVS(VectorStore):
         documents = []
         for row in result["hits"]:
             hit = row["hit"] or {}
-            doc = Document(page_content=self._to_content(hit))
-            documents.append((doc, hit["__ISPN_Score"]))
+            if self._output_fields is None:
+                entity = hit["*"]
+            else:
+                entity = {key: hit.get(key) for key in self._output_fields}
+            doc = Document(page_content=self._to_content(entity),
+                           metadata=self._to_metadata(entity))
+            documents.append((doc, hit["score()"]))
         return documents
 
     @classmethod
@@ -320,13 +433,13 @@ class InfinispanVS(VectorStore):
             embedding: Embeddings,
             metadatas: Optional[List[dict]] = None,
             configuration: dict[str, Any] = None,
+            ids: Optional[List[str]] = None,
+            clear_old: Optional[bool] = None,
             **kwargs: Any
     ) -> InfinispanVS:
         """Return VectorStore initialized from texts and embeddings."""
-        if not isinstance(kwargs.get("infinispan"), Infinispan):
-            warnings.warn("infinispan input must be Infinispan object.")
-        infinispan = cls(embedding=embedding, configuration=configuration,
-                         ispn=kwargs.get("infinispan"))
+        infinispanvs = cls(embedding=embedding, configuration=configuration,
+                           ids=ids, clear_old=clear_old)
         if texts:
-            infinispan.add_texts(texts, metadatas)
-        return infinispan
+            infinispanvs.add_texts(texts, metadatas)
+        return infinispanvs

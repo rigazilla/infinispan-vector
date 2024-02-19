@@ -24,7 +24,7 @@ text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 texts = text_splitter.split_documents(documents)
 
 from infinispan_vector.infinispanvs import Infinispan, InfinispanVS
-ispn = Infinispan()
+ispnVS = InfinispanVS()
 
 # Configure Infinispan with proto schema and cache
 schema_vector = '''
@@ -35,19 +35,17 @@ message vector {
 /**
  * @Vector(dimension=384)
  */
-repeated float floatVector = 1;
+repeated float vector = 1;
 optional int32 page = 2;
 optional string source = 3;
-optional string content = 4;
+optional string text = 4;
 }
 '''
 
-ispn.req_schema_delete("vector.proto")
-output = ispn.req_schema_post("vector.proto",schema_vector)
-#print(output.text)
+ispnVS.schema_delete()
+output = ispnVS.schema_create(schema_vector)
 assert output.status_code in (200, 204)
 assert json.loads(output.text)["error"] is None
-
 
 # Creating an InfinispanVS cache to store vectors
 
@@ -73,12 +71,12 @@ cache_def = '''
 }
 '''
 
-ispn.req_cache_delete("vector")
-output= ispn.req_cache_post("vector", cache_def)
+ispnVS.cache_delete()
+output= ispnVS.cache_create(cache_def)
 assert output.status_code in (200, 204)
 
 for text in texts:
-    text.metadata.update({"content": text.page_content})
+    text.metadata.update({"text": text.page_content})
 
 # Replacing OpenAI embeddings with HuggingFace model due to vector dimension limit
 #embeddings = OpenAIEmbeddings()
@@ -98,8 +96,8 @@ embeddings = HuggingFaceEmbeddings(
     model_kwargs=model_kwargs, # Pass the model configuration options
     encode_kwargs=encode_kwargs # Pass the encoding options
 )
-vector_store = InfinispanVS.from_documents(documents=texts, embedding=embeddings,
-                                           configuration={"lambda.content": lambda item: item["content"], "cache_name": "vector", "entity_name" : "vector"}, infinispan=ispn)
+
+vector_store = InfinispanVS.from_documents(documents=texts, embedding=embeddings)
 
 from langchain.indexes import VectorstoreIndexCreator
 retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k":2})

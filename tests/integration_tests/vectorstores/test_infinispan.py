@@ -1,168 +1,139 @@
-import json
-from typing import List, Optional
+"""Test Infinispan functionality."""
+from typing import List, Optional, Any, Dict
 
 from langchain_core.documents import Document
-import requests
-from infinispan_vector import Infinispan, InfinispanVS
-from infinispan_vector.infinispanvs import Infinispan
-from fake_embeddings import (
-    RGBEmbeddings
+
+from infinispan_vector.infinispanvs import InfinispanVS
+
+
+from tests.integration_tests.vectorstores.fake_embeddings import (
+    FakeEmbeddings,
+    fake_texts,
 )
 
-cache_name="embeddingvectors"
-def _get_ispn() -> (Infinispan, InfinispanVS):
-    ispn = Infinispan()
-    return (ispn, InfinispanVS.from_texts({}, embedding=RGBEmbeddings(),
-                                 configuration={"output_fields": ["texture", "color"], "lambda.key": lambda text, meta: str(meta["_key"]), "lambda.content": lambda item: item["color"]}, ispn=ispn))
 
-def test_infinispan_schema_post() -> None:
-    test_infinispan_schema_delete()
-    infinispan, vs = _get_ispn()
-    data = '''
-/**
- * @Indexed
- */
-message vector {
-/**
- * @Vector(dimension=3)
- */
-repeated float floatVector = 1;
-optional string texture = 2;
-optional string color = 3;
-optional string _key = 4;
-}
-'''
-    output = infinispan.req_schema_post("vector.proto",data)
-    assert output.status_code == 200
-    assert json.loads(output.text)["error"] == None
-
-def test_infinispan_schema_delete() -> None:
-    infinispan, vs = _get_ispn()
-    infinispan.req_cache_clear(cache_name)
-    output = infinispan.req_schema_delete("vector.proto")
-    assert output.status_code in {204, 404}
-
-def test_cache_create_delete() -> None:
-    _cache_delete()
-    _cache_post()
-    _cache_delete()
-
-def _cache_post() -> None:
-    infinispan, vs = _get_ispn()
-    data = '''
-{
-  "distributed-cache": {
-    "owners": "2",
-    "mode": "SYNC",
-    "statistics": true,
-    "encoding": {
-      "media-type": "application/x-protostream"
-    },
-    "indexing": {
-      "enabled": true,
-      "storage": "filesystem",
-      "startup-mode": "AUTO",
-      "indexing-mode": "AUTO",
-      "indexed-entities": [
-        "vector"
-      ]
+def _infinispan_setup() -> None:
+    ispnvs = InfinispanVS()
+    ispnvs.cache_delete()
+    ispnvs.schema_delete()
+    proto = '''
+    /**
+     * @Indexed
+     */
+    message vector {
+    /**
+     * @Vector(dimension=10)
+     */
+    repeated float vector = 1;
+    optional string text = 2;
+    optional string label = 3;
+    optional int32 page = 4;
     }
-  }
-}
-'''
-    output = infinispan.req_cache_post("embeddingvectors",data)
-    assert (output.status_code == 200 or ("already exists" in output.text))
+    '''
+    ispnvs.schema_create(proto)
+    ispnvs.cache_create()
+    ispnvs.cache_index_clear()
 
-def _cache_delete() -> None:
-    infinispan, vs = _get_ispn()
-    output = infinispan.req_cache_delete("embeddingvectors")
-    assert output.status_code in {200,404}
 
-def test_infinispan_vectors_post_then_query() -> None:
-    infinispan, vs = _get_ispn()
-    test_infinispan_schema_post()
-    _cache_post()
-    infinispan.req_cache_clear(cache_name)
-    test_add_texts()
-    query_res = infinispan.req_query("from vector i where i.floatVector <-> [0.5,0.5,0.5]~2", cache_name)
-    assert query_res.status_code == 200
-    str = query_res.content.decode("utf-8")
-    jOut = json.loads(str)
-    assert jOut["hit_count"] == 2
-    vectors = [x["hit"]["color"] for x in jOut["hits"]]
-    vectors.sort()
-    assert vectors == ['green', 'red']
+def u(m, t):
+    m.update(t)
 
-def test_infinispan_vectors_post_then_query_with_score() -> None:
-    infinispan, vs = _get_ispn()
-    test_infinispan_schema_post()
-    _cache_post()
-    infinispan.req_cache_clear(cache_name)
-    test_add_texts()
-    query_res = infinispan.req_query("select i.texture, i.color, score(i) from vector i where i.floatVector <-> [0.5,0.5,0.5]~2", cache_name)
-    assert query_res.status_code == 200
-    str = query_res.content.decode("utf-8")
-    jOut = json.loads(str)
-    assert jOut["hit_count"] == 2
-    vectors = [x["hit"]["color"] for x in jOut["hits"]]
-    vectors.sort()
-    assert vectors == ['green', 'red']
 
-def test_infinispan_vectors_post_then_query_by_vector() -> None:
-    infinispan, vs = _get_ispn()
-    test_infinispan_schema_post()
-    _cache_post()
-    infinispan.req_cache_clear(cache_name)
-    test_add_texts()
-    docs = vs.similarity_search_by_vector([0.5,0.5,0.0],2)
-    assert docs == [Document(page_content='green'), Document(page_content='red')]
+def _infinispanvs_from_texts(
+        metadatas: Optional[List[dict]] = None,
+        ids: Optional[List[str]] = None,
+        clear_old: Optional[bool] = True,
+        configuration: Optional[Dict[str, Any]] = None
+        ) -> InfinispanVS:
+    texts = [{"text": t} for t in fake_texts]
+    if metadatas is None:
+        metadatas = texts
+    else:
+        [u(m, t) for (m, t) in zip(metadatas, texts)]
+    return InfinispanVS.from_texts(
+        fake_texts,
+        FakeEmbeddings(),
+        metadatas=metadatas,
+        ids=ids,
+        clear_old=clear_old,
+        configuration=configuration
+    )
 
-def test_infinispan_similarity_search() -> None:
-    infinispan, vs = _get_ispn()
-    infinispan.req_cache_clear(cache_name)
-    test_add_texts()
-    output = vs.similarity_search("orange",2)
-    assert output == [Document(page_content='red'), Document(page_content='green')]
-    output = vs.similarity_search("purple",2)
-    assert output == [Document(page_content='red'), Document(page_content='blue')]
-    output = vs.similarity_search("lime",2)
-    assert output == [Document(page_content='green'), Document(page_content='black')]
-    output = vs.similarity_search("snow",2)
-    assert output == [Document(page_content='white'), Document(page_content='red')]
 
-def test_infinispan_similarity_search_with_score() -> None:
-    infinispan, vs = _get_ispn()
-    infinispan.req_cache_clear(cache_name)
-    test_add_texts()
-    output = vs.similarity_search("orange",2)
-    assert output == [Document(page_content='red'), Document(page_content='green')]
-    output = vs.similarity_search("purple",2)
-    assert output == [Document(page_content='red'), Document(page_content='blue')]
-    output = vs.similarity_search("lime",2)
-    assert output == [Document(page_content='green'), Document(page_content='black')]
-    output = vs.similarity_search("snow",2)
-    assert output == [Document(page_content='white'), Document(page_content='red')]
+def test_infinispan() -> None:
+    """Test end to end construction and search."""
+    _infinispan_setup()
+    docsearch = _infinispanvs_from_texts()
+    output = docsearch.similarity_search("foo", k=1)
+    assert output == [Document(page_content="foo")]
 
-def test_put_get() -> None:
-    infinispan, vs = _get_ispn()
-    test_infinispan_schema_post()
-    _cache_post()
-    infinispan.req_cache_clear(cache_name)
-    metadata = {"_type": "vector", "_key": "1", "texture" : "matt", "color" : "red", "floatVector" : [0.0,0.0,1.0]}
-    infinispan.req_put("1", json.dumps(metadata), cache_name)
-    response = infinispan.req_get("1", cache_name)
-    res = json.loads(response.text)
-    assert res==metadata
 
-def test_add_texts() -> None:
-    infinispan, vs = _get_ispn()
-    infinispan.req_cache_clear(cache_name)
-    metadatas = [{"_key": 1, "_type": "vector", "texture" : "matt", "color" : "red"},
-                {"_key": 2, "_type": "vector", "texture": "glossy", "color" : "green"},
-                {"_key": 3, "_type": "vector", "texture": "silk", "color" : "blue"},
-                {"_key": 4, "_type": "vector", "texture": "matt", "color" : "black"},
-                {"_key": 5, "_type": "vector", "texture": "raw", "color" : "white"}
-            ]
-    texts = ["red", "green", "blue", "black", "white"]
-    res = vs.add_texts(texts, metadatas)
-    assert res == ["1","2","3","4","5"]
+def test_infinispan_with_metadata() -> None:
+    """Test with metadata"""
+    _infinispan_setup()
+    meta = []
+    for _ in range(len(fake_texts)):
+        meta.append({"label": "test"})
+    docsearch = _infinispanvs_from_texts(metadatas=meta)
+    output = docsearch.similarity_search("foo", k=1)
+    assert output == [Document(page_content="foo", metadata={"label": "test"})]
+
+
+def test_infinispan_with_metadata_with_output_fields() -> None:
+    """Test with metadata"""
+    _infinispan_setup()
+    metadatas = [{"page": i, "label": "label"+str(i)} for i in range(len(fake_texts))]
+    c = {"output_fields": ["label", "page", "text"]}
+    docsearch = _infinispanvs_from_texts(metadatas=metadatas, configuration=c)
+    output = docsearch.similarity_search("foo", k=1)
+    assert output == [Document(page_content="foo", metadata={"label": "label0", "page": 0})]
+
+
+def test_infinispanvs_with_id() -> None:
+    """Test with ids"""
+    ids = ["id_" + str(i) for i in range(len(fake_texts))]
+    docsearch = _infinispanvs_from_texts(ids=ids)
+    output = docsearch.similarity_search("foo", k=1)
+    assert output == [Document(page_content="foo")]
+
+
+def test_infinispan_with_score() -> None:
+    """Test end to end construction and search with scores and IDs."""
+    _infinispan_setup()
+    texts = ["foo", "bar", "baz"]
+    metadatas = [{"page": i} for i in range(len(texts))]
+    docsearch = _infinispanvs_from_texts(metadatas=metadatas)
+    output = docsearch.similarity_search_with_score("foo", k=3)
+    docs = [o[0] for o in output]
+    scores = [o[1] for o in output]
+    assert docs == [
+        Document(page_content="foo", metadata={"page": 0}),
+        Document(page_content="bar", metadata={"page": 1}),
+        Document(page_content="baz", metadata={"page": 2}),
+    ]
+    assert scores[0] >= scores[1] >= scores[2]
+
+
+def test_infinispan_add_texts() -> None:
+    """Test end to end construction and MRR search."""
+    _infinispan_setup()
+    texts = ["foo", "bar", "baz"]
+    metadatas = [{"page": i} for i in range(len(texts))]
+    docsearch = _infinispanvs_from_texts(metadatas=metadatas)
+
+    docsearch.add_texts(texts, metadatas)
+
+    output = docsearch.similarity_search("foo", k=10)
+    assert len(output) == 6
+
+
+def test_infinispan_no_clear_old() -> None:
+    """Test end to end construction and MRR search."""
+    _infinispan_setup()
+    texts = ["foo", "bar", "baz"]
+    metadatas = [{"page": i} for i in range(len(texts))]
+    docsearch = _infinispanvs_from_texts(metadatas=metadatas)
+    del docsearch
+    docsearch = _infinispanvs_from_texts(metadatas=metadatas, clear_old=False)
+    output = docsearch.similarity_search("foo", k=10)
+    assert len(output) == 6

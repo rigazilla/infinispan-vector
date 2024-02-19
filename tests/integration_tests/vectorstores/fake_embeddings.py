@@ -1,8 +1,6 @@
 """Fake Embedding class for testing purposes."""
-import json
 import math
 from typing import List
-from matplotlib import colors
 
 from langchain_core.embeddings import Embeddings
 
@@ -21,8 +19,11 @@ class FakeEmbeddings(Embeddings):
         return self.embed_documents(texts)
 
     def embed_query(self, text: str) -> List[float]:
-        """Convert str to a json list of float and return it."""
-        return json.loads(text)
+        """Return constant query embeddings.
+        Embeddings are identical to embed_documents(texts)[0].
+        Distance to each text will be that text's index,
+        as it was passed to embed_documents."""
+        return [float(1.0)] * 9 + [float(0.0)]
 
     async def aembed_query(self, text: str) -> List[float]:
         return self.embed_query(text)
@@ -78,20 +79,3 @@ class AngularTwoDimensionalEmbeddings(Embeddings):
         except ValueError:
             # Assume: just test string, no attention is paid to values.
             return [0.0, 0.0]
-
-class RGBEmbeddings(Embeddings):
-    """Fake embeddings which returns rgb vector given a matplotlib colorname
-    """
-
-    def __init__(self, dimensionality: int = 3) -> None:
-        self.known_texts: List[str] = []
-        self.dimensionality = dimensionality
-
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Return consistent embeddings for each text seen so far."""
-        return [self.embed_query(text) for text in texts]
-
-
-    def embed_query(self, text: str) -> List[float]:
-        """Convert str to a json list of float and return it."""
-        return list(colors.to_rgb(text))
