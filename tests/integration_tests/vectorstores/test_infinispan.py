@@ -43,7 +43,7 @@ def _infinispanvs_from_texts(
         metadatas: Optional[List[dict]] = None,
         ids: Optional[List[str]] = None,
         clear_old: Optional[bool] = True,
-        configuration: Optional[Dict[str, Any]] = None
+        **kwargs
         ) -> InfinispanVS:
     texts = [{"text": t} for t in fake_texts]
     if metadatas is None:
@@ -56,7 +56,7 @@ def _infinispanvs_from_texts(
         metadatas=metadatas,
         ids=ids,
         clear_old=clear_old,
-        configuration=configuration
+        **kwargs
     )
 
 

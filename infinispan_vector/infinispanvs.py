@@ -24,20 +24,20 @@ REST_TIMEOUT = 10
 
 
 class Infinispan:
-    """`Infinispan` REST interface.
+    """Helper class for `Infinispan` REST interface.
 
     This class exposes the Infinispan operations needed to
     create and set up a vector db.
 
     You need a running Infinispan (15+) server without authentication.
-    You can easily start one see: https://github.com/rigazilla/infinispan-vector
+    You can easily start one, see: https://github.com/rigazilla/infinispan-vector
     """
 
     def __init__(
             self,
-            configuration: Optional[dict[str, Any]] = None,
+            **kwargs
     ):
-        self._configuration = configuration or {}
+        self._configuration = kwargs
         self._schema = str(self._configuration.get("schema", "http"))
         self._host = str(self._configuration.get("hosts", ["127.0.0.1:11222"])[0])
         self._default_node = self._schema + "://" + self._host
@@ -55,10 +55,10 @@ class Infinispan:
             An http Response containing the result set or errors
         """
         if self._use_post_for_query:
-            return self._req_query_post(query, cache_name, local)
-        return self._req_query_get(query, cache_name, local)
+            return self._query_post(query, cache_name, local)
+        return self._query_get(query, cache_name, local)
 
-    def _req_query_post(self, query_str, cache_name, local=False) -> requests.Response:
+    def _query_post(self, query_str, cache_name, local=False) -> requests.Response:
         api_url = (self._default_node + self._cache_url + "/" + cache_name
                    + "?action=search&local=" + str(local))
         data = {"query": query_str}
@@ -67,13 +67,13 @@ class Infinispan:
                                  timeout=REST_TIMEOUT)
         return response
 
-    def _req_query_get(self, query_str, cache_name, local=False) -> requests.Response:
+    def _query_get(self, query_str, cache_name, local=False) -> requests.Response:
         api_url = (self._default_node + self._cache_url + "/" + cache_name + "?action=search&query="
                    + query_str + "&local=" + str(local))
         response = requests.get(api_url, timeout=REST_TIMEOUT)
         return response
 
-    def req_post(self, key, data, cache_name) -> requests.Response:
+    def post(self, key, data, cache_name) -> requests.Response:
         """ Post an entry
         Args:
             key(str): key of the entry
@@ -87,7 +87,7 @@ class Infinispan:
                                  timeout=REST_TIMEOUT)
         return response
 
-    def req_put(self, key: str, data, cache_name) -> requests.Response:
+    def put(self, key: str, data, cache_name) -> requests.Response:
         """ Put an entry
         Args:
             key(str): key of the entry
@@ -101,7 +101,7 @@ class Infinispan:
                                 timeout=REST_TIMEOUT)
         return response
 
-    def req_get(self, key: str, cache_name) -> requests.Response:
+    def get(self, key: str, cache_name) -> requests.Response:
         """ Get an entry
         Args:
             key(str): key of the entry
@@ -114,7 +114,7 @@ class Infinispan:
                                 timeout=REST_TIMEOUT)
         return response
 
-    def req_schema_post(self, name, proto) -> requests.Response:
+    def schema_post(self, name, proto) -> requests.Response:
         """ Deploy a schema
         Args:
             name(str): name of the schema. Will be used as a key
@@ -126,7 +126,7 @@ class Infinispan:
         response = requests.post(api_url, proto, timeout=REST_TIMEOUT)
         return response
 
-    def req_cache_post(self, name, config) -> requests.Response:
+    def cache_post(self, name, config) -> requests.Response:
         """ Create a cache
         Args:
             name(str): name of the cache.
@@ -139,7 +139,7 @@ class Infinispan:
                                  timeout=REST_TIMEOUT)
         return response
 
-    def req_schema_delete(self, name) -> requests.Response:
+    def schema_delete(self, name) -> requests.Response:
         """ Delete a schema
         Args:
             name(str): name of the schema.
@@ -150,7 +150,7 @@ class Infinispan:
         response = requests.delete(api_url, timeout=REST_TIMEOUT)
         return response
 
-    def req_cache_delete(self, name) -> requests.Response:
+    def cache_delete(self, name) -> requests.Response:
         """ Delete a cache
         Args:
             name(str): name of the cache.
@@ -161,7 +161,7 @@ class Infinispan:
         response = requests.delete(api_url, timeout=REST_TIMEOUT)
         return response
 
-    def req_cache_clear(self, cache_name) -> requests.Response:
+    def cache_clear(self, cache_name) -> requests.Response:
         """ Clear a cache
         Args:
             cache_name(str): name of the cache.
@@ -172,7 +172,7 @@ class Infinispan:
         response = requests.post(api_url, timeout=REST_TIMEOUT)
         return response
 
-    def req_index_clear(self, cache_name) -> requests.Response:
+    def index_clear(self, cache_name) -> requests.Response:
         """ Clear an index on a cache
         Args:
             cache_name(str): name of the cache.
@@ -183,7 +183,7 @@ class Infinispan:
                    + "/search/indexes?action=clear")
         return requests.post(api_url, timeout=REST_TIMEOUT)
 
-    def req_index_reindex(self, cache_name) -> requests.Response:
+    def index_reindex(self, cache_name) -> requests.Response:
         """ Rebuild index on a cache
         Args:
             cache_name(str): name of the cache.
@@ -232,25 +232,25 @@ class InfinispanVS(VectorStore):
     def __init__(
             self,
             embedding: Optional[Embeddings] = None,
-            configuration: Optional[dict[str, Any]] = None,
             ids: Optional[List[str]] = None,
-            clear_old: Optional[bool] = True
+            clear_old: Optional[bool] = True,
+            **kwargs
     ):
-        self.ispn = Infinispan(configuration=configuration)
-        self._configuration = configuration or {}
+        self.ispn = Infinispan(**kwargs)
+        self._configuration = kwargs
         self._cache_name = str(self._configuration.get("cache_name", "vector"))
         self._entity_name = str(self._configuration.get("entity_name", "vector"))
         self._embedding = embedding
         self._textfield = self._configuration.get("textfield", "text")
         self._vectorfield = self._configuration.get("vectorfield", "vector")
-        self._to_content = self._configuration.get("lambda.content",
+        self._to_content = self._configuration.get("lambda_content",
                                                    lambda item: self._default_content(item))
-        self._to_metadata = self._configuration.get("lambda.metadata",
+        self._to_metadata = self._configuration.get("lambda_metadata",
                                                     lambda item: self._default_metadata(item))
         self._output_fields = self._configuration.get("output_fields")
         self._ids = ids
         if clear_old:
-            self.ispn.req_cache_clear(self._cache_name)
+            self.ispn.cache_clear(self._cache_name)
 
     def _default_metadata(self, item):
         meta = dict(item)
@@ -269,14 +269,14 @@ class InfinispanVS(VectorStore):
         Returns:
             An http Response containing the result of the operation
         """
-        return self.ispn.req_schema_post(self._entity_name+".proto", proto)
+        return self.ispn.schema_post(self._entity_name + ".proto", proto)
 
     def schema_delete(self) -> requests.Response:
         """ Delete the schema for the vector db
         Returns:
             An http Response containing the result of the operation
         """
-        return self.ispn.req_schema_delete(self._entity_name+".proto")
+        return self.ispn.schema_delete(self._entity_name + ".proto")
 
     def cache_create(self, config=None) -> requests.Response:
         """ Create the cache for the vector db
@@ -307,35 +307,35 @@ class InfinispanVS(VectorStore):
   }
 }
 '''
-        return self.ispn.req_cache_post(self._cache_name, config)
+        return self.ispn.cache_post(self._cache_name, config)
 
     def cache_delete(self) -> requests.Response:
         """ Delete the cache for the vector db
         Returns:
             An http Response containing the result of the operation
         """
-        return self.ispn.req_cache_delete(self._cache_name)
+        return self.ispn.cache_delete(self._cache_name)
 
     def cache_clear(self) -> requests.Response:
         """ Clear the cache for the vector db
         Returns:
             An http Response containing the result of the operation
         """
-        return self.ispn.req_cache_clear(self._cache_name)
+        return self.ispn.cache_clear(self._cache_name)
 
     def cache_index_clear(self) -> requests.Response:
         """ Clear the index for the vector db
         Returns:
             An http Response containing the result of the operation
         """
-        return self.ispn.req_index_clear(self._cache_name)
+        return self.ispn.index_clear(self._cache_name)
 
     def cache_index_reindex(self) -> requests.Response:
         """ Rebuild the for the vector db
         Returns:
             An http Response containing the result of the operation
         """
-        return self.ispn.req_index_reindex(self._cache_name)
+        return self.ispn.index_reindex(self._cache_name)
 
     def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None,
                   **kwargs: Any) -> List[str]:
@@ -349,7 +349,7 @@ class InfinispanVS(VectorStore):
             data = {"_type": self._entity_name, self._vectorfield: embed}
             data.update(metadata)
             data_str = json.dumps(data)
-            self.ispn.req_put(key, data_str, self._cache_name)
+            self.ispn.put(key, data_str, self._cache_name)
             result.append(key)
         return result
 
@@ -432,14 +432,13 @@ class InfinispanVS(VectorStore):
             texts: List[str],
             embedding: Embeddings,
             metadatas: Optional[List[dict]] = None,
-            configuration: dict[str, Any] = None,
             ids: Optional[List[str]] = None,
             clear_old: Optional[bool] = None,
             **kwargs: Any
     ) -> InfinispanVS:
         """Return VectorStore initialized from texts and embeddings."""
-        infinispanvs = cls(embedding=embedding, configuration=configuration,
-                           ids=ids, clear_old=clear_old)
+        infinispanvs = cls(embedding=embedding,
+                           ids=ids, clear_old=clear_old, **kwargs)
         if texts:
             infinispanvs.add_texts(texts, metadatas)
         return infinispanvs

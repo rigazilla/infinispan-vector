@@ -1,5 +1,4 @@
 from langchain.document_loaders import PyPDFLoader
-from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.embeddings.huggingface import HuggingFaceEmbeddings
 from tqdm import tqdm
 import pickle
