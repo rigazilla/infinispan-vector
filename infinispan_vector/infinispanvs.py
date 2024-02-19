@@ -30,7 +30,7 @@ class Infinispan:
     create and set up a vector db.
 
     You need a running Infinispan (15+) server without authentication.
-    You can easily start one, see: https://github.com/rigazilla/infinispan-vector
+    You can easily start one, see: https://github.com/rigazilla/infinispan-vector#run-infinispan
     """
 
     def __init__(
@@ -208,25 +208,27 @@ class InfinispanVS(VectorStore):
             ...
             vectorDb = InfinispanVS.from_documents(docs,
                             embedding=RGBEmbeddings(),
-                            configuration={ "output_fields": ["texture", "color"],
-                                            "lambda.key": lambda text,meta: str(meta["_key"]),
-                                            "lambda.content": lambda item: item["color"]})
+                            output_fields=["texture", "color"],
+                            lambda_key=lambda text,meta: str(meta["_key"]),
+                            lambda_content=lambda item: item["color"])
 
-        or
+        or an empty InfinispanVS instance can be created if preliminary setup is required
+        before populating the store
 
         ... code-block:: python
             from langchain_community.vectorstores import InfinispanVS
             from mymodels import RGBEmbeddings
             ...
-            ispnVS = Infinispan()
+            ispnVS = InfinispanVS()
             # configure Infinispan here
+            # i.e. create cache and schema
 
+            # then populate the store
             vectorDb = InfinispanVS.from_documents(docs,
                             embedding=RGBEmbeddings(),
                             configuration={ "output_fields": ["texture", "color"],
                                             "lambda.key": lambda text,meta: str(meta["_key"]),
-                                            "lambda.content": lambda item: item["color"]},
-                                            ispnVS = ispnVS)
+                                            "lambda.content": lambda item: item["color"]})
     """
 
     def __init__(
