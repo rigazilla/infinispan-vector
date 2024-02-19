@@ -9,6 +9,14 @@ available for this.
 - Python 3.9 environment.
 - Jupiter Lab
 
+### Run Infinispan
+Easiest way to run an Infinispan server for this demo is via docker (or podman)
+
+    docker run -v $(pwd):/user-config  -p 11222:11222 infinispan/server:15.0.0.Dev09 -c /user-config/infinispan-noauth.xml
+
+alternatively you can download from [Infinispan Download](https://infinispan.org/download) an Infinispan 15+ and run it
+with the provided infinispan-noauth.xml configuration.
+
 ### Setup
 
 - python3.9 -m venv demovenv   # Create a Python 3.9 environment

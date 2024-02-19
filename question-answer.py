@@ -73,6 +73,7 @@ cache_def = '''
 ispnVS.cache_delete()
 output= ispnVS.cache_create(cache_def)
 assert output.status_code in (200, 204)
+ispnVS.cache_index_clear()
 
 for text in texts:
     text.metadata.update({"text": text.page_content})
