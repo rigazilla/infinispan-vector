@@ -53,9 +53,9 @@ class InfinispanVS(VectorStore):
             # then populate the store
             vectorDb = InfinispanVS.from_documents(docs,
                             embedding=RGBEmbeddings(),
-                            configuration={ "output_fields": ["texture", "color"],
-                                            "lambda.key": lambda text,meta: str(meta["_key"]),
-                                            "lambda.content": lambda item: item["color"]})
+                            output_fields: ["texture", "color"],
+                            lambda_key: lambda text,meta: str(meta["_key"]),
+                            lambda_content: lambda item: item["color"]})
     """
 
     def __init__(
