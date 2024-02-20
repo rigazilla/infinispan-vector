@@ -1,10 +1,8 @@
 """Test Infinispan functionality."""
-from typing import List, Optional, Any, Dict
-
-from langchain_core.documents import Document
+from typing import Any, List, Optional
 
 from infinispan_vector.infinispanvs import InfinispanVS
-
+from langchain_core.documents import Document
 
 from tests.integration_tests.vectorstores.fake_embeddings import (
     FakeEmbeddings,
@@ -16,7 +14,7 @@ def _infinispan_setup() -> None:
     ispnvs = InfinispanVS()
     ispnvs.cache_delete()
     ispnvs.schema_delete()
-    proto = '''
+    proto = """
     /**
      * @Indexed
      */
@@ -29,34 +27,30 @@ def _infinispan_setup() -> None:
     optional string label = 3;
     optional int32 page = 4;
     }
-    '''
+    """
     ispnvs.schema_create(proto)
     ispnvs.cache_create()
     ispnvs.cache_index_clear()
 
 
-def u(m, t):
-    m.update(t)
-
-
 def _infinispanvs_from_texts(
-        metadatas: Optional[List[dict]] = None,
-        ids: Optional[List[str]] = None,
-        clear_old: Optional[bool] = True,
-        **kwargs
-        ) -> InfinispanVS:
+    metadatas: Optional[List[dict]] = None,
+    ids: Optional[List[str]] = None,
+    clear_old: Optional[bool] = True,
+    **kwargs: Any,
+) -> InfinispanVS:
     texts = [{"text": t} for t in fake_texts]
     if metadatas is None:
         metadatas = texts
     else:
-        [u(m, t) for (m, t) in zip(metadatas, texts)]
+        [m.update(t) for (m, t) in zip(metadatas, texts)]
     return InfinispanVS.from_texts(
         fake_texts,
         FakeEmbeddings(),
         metadatas=metadatas,
         ids=ids,
         clear_old=clear_old,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -82,11 +76,13 @@ def test_infinispan_with_metadata() -> None:
 def test_infinispan_with_metadata_with_output_fields() -> None:
     """Test with metadata"""
     _infinispan_setup()
-    metadatas = [{"page": i, "label": "label"+str(i)} for i in range(len(fake_texts))]
+    metadatas = [{"page": i, "label": "label" + str(i)} for i in range(len(fake_texts))]
     c = {"output_fields": ["label", "page", "text"]}
     docsearch = _infinispanvs_from_texts(metadatas=metadatas, configuration=c)
     output = docsearch.similarity_search("foo", k=1)
-    assert output == [Document(page_content="foo", metadata={"label": "label0", "page": 0})]
+    assert output == [
+        Document(page_content="foo", metadata={"label": "label0", "page": 0})
+    ]
 
 
 def test_infinispanvs_with_id() -> None:
