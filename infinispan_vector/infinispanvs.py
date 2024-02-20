@@ -110,14 +110,14 @@ class InfinispanVS(VectorStore):
         """
         return self.ispn.schema_delete(self._entity_name + ".proto")
 
-    def cache_create(self, config: str = None) -> requests.Response:
+    def cache_create(self, config: str = "") -> requests.Response:
         """Create the cache for the vector db
         Args:
             config(str): configuration of the cache.
         Returns:
             An http Response containing the result of the operation
         """
-        if config is None:
+        if config == "":
             config = (
                 '''
             {
