@@ -1,9 +1,9 @@
 """Test Infinispan functionality."""
 from typing import Any, List, Optional
 
-from infinispan_vector.infinispanvs import InfinispanVS
 from langchain_core.documents import Document
 
+from infinispan_vector import InfinispanVS
 from tests.integration_tests.vectorstores.fake_embeddings import (
     FakeEmbeddings,
     fake_texts,
