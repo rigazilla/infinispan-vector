@@ -16,7 +16,7 @@ A set of demo on how to use Infinispan as a vector DB in python projects
 - open the demo-book you want to run, everything should be there
 
 ### Run Infinispan
-Notebooks will start Infinispan server in a docker container, so no additional setup is needed.
+Notebooks will start Infinispan server in a docker container, so no additional setup is needed.  
 Otherwise, if Docker is not a good option, you can download from
 [Infinispan Download](https://infinispan.org/download) an Infinispan 15+ and run it
 with the provided infinispan-noauth.yaml configuration. Remember to skip the docker cell
