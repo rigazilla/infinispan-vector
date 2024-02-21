@@ -1,16 +1,15 @@
 infinispan:
   cache-container: 
     name: default
-      transport: 
-        cluster: cluster 
-        stack: tcp 
-        node-name: ispn_demo_node
+    transport: 
+      cluster: cluster 
+      stack: tcp 
   server:
     interfaces:
       interface:
         name: public
-          inet-address:
-            value: 127.0.0.1
+        inet-address:
+          value: 0.0.0.0 
     socket-bindings:
       default-interface: public
       port-offset: 0        
@@ -18,4 +17,7 @@ infinispan:
         name: default
         port: 11222
     endpoints:
-      socket-binding: default
+      endpoint:
+        socket-binding: default
+        rest-connector:
+
