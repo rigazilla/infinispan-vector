@@ -4,9 +4,10 @@ A set of demo on how to use Infinispan as a vector DB in python projects
 
 ### Requirements
 
-- Python 3.9 environment.
+- Python 3.9 environment
+- pip
 - Jupiter Lab
-- Docker (see note below)
+- Docker (or you'll need to start Infinispan before demo)
 
 ### Setup
 
