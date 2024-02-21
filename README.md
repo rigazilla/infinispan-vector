@@ -6,14 +6,7 @@ A set of demo on how to use Infinispan as a vector DB in python projects
 
 - Python 3.9 environment.
 - Jupiter Lab
-
-### Run Infinispan
-Easiest way to run an Infinispan server for this demo is via docker (or podman)
-
-    docker run -v $(pwd):/user-config  -p 11222:11222 infinispan/server:15.0.0.Dev09 -c /user-config/infinispan-noauth.yaml
-
-alternatively you can download from [Infinispan Download](https://infinispan.org/download) an Infinispan 15+ and run it
-with the provided infinispan-noauth.yaml configuration.
+- Docker (see note below)
 
 ### Setup
 
@@ -21,8 +14,15 @@ with the provided infinispan-noauth.yaml configuration.
 - OPEN_API_KEY=<yourkey> jupyter-lab
 - open the demo-book you want to run, everything should be there
 
+### Run Infinispan
+Notebooks will start Infinispan server in a docker container, so no additional setup is needed.
+Otherwise, if Docker is not a good option, you can download from
+[Infinispan Download](https://infinispan.org/download) an Infinispan 15+ and run it
+with the provided infinispan-noauth.yaml configuration. Remember to skip the docker cell
+when running the demo.
+
 #### similarity-search-demo-1.ipynb
-Based on _all-MiniLM-L12-v2_ model. Relay on a 28k+ BBC news db that you can use
+Based on _all-MiniLM-L12-v2_ model. Relay on a 28k+ news db that you can use
 to do similarity search.
 
 #### similarity-search-demo-2.ipynb
