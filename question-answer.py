@@ -3,8 +3,9 @@ from langchain_community.embeddings.huggingface import HuggingFaceEmbeddings
 from tqdm import tqdm
 import pickle
 import os
-import json
+from dotenv import load_dotenv
 
+load_dotenv()
 # Load PDF documentation
 pdf_folder_path = '/home/rigazilla/ai/data/ai-pdf'
 loaders = [PyPDFLoader(os.path.join(pdf_folder_path, fn)) for fn in os.listdir(pdf_folder_path)]
@@ -24,35 +25,6 @@ texts = text_splitter.split_documents(documents)
 
 from infinispan_vector.infinispanvs import Infinispan, InfinispanVS
 ispnVS = InfinispanVS()
-
-# Configure Infinispan with proto schema and cache
-schema_vector = '''
-/**
- * @Indexed
- */
-message vector {
-/**
- * @Vector(dimension=384)
- */
-repeated float vector = 1;
-optional int32 page = 2;
-optional string source = 3;
-optional string text = 4;
-}
-'''
-
-ispnVS.schema_delete()
-output = ispnVS.schema_create(schema_vector)
-assert output.status_code in (200, 204)
-assert json.loads(output.text)["error"] is None
-
-# Creating an InfinispanVS cache to store vectors
-
-
-ispnVS.cache_delete()
-output= ispnVS.cache_create()
-assert output.status_code in (200, 204)
-ispnVS.cache_index_clear()
 
 for text in texts:
     text.metadata.update({"text": text.page_content})
@@ -76,7 +48,7 @@ embeddings = HuggingFaceEmbeddings(
     encode_kwargs=encode_kwargs # Pass the encoding options
 )
 
-vector_store = InfinispanVS.from_documents(documents=texts, embedding=embeddings)
+vector_store = InfinispanVS.from_documents(documents=texts, embedding=embeddings, clear_old=False)
 
 from langchain.indexes import VectorstoreIndexCreator
 retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k":2})

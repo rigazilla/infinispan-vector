@@ -11,9 +11,9 @@ A set of demo on how to use Infinispan as a vector DB in python projects
 
 ### Setup
 
-- pip install jupiter-lab
-- OPEN_API_KEY="your-api-key" jupyter-lab
-- jupiter-lab will open a web gui in your browser, from there you
+    pip install jupyterlab
+    jupyter-lab
+`jupiter-lab` will open a web gui in your browser, from there you
 can run the demo notebooks
 
 #### similarity-search-demo-1.ipynb
@@ -26,6 +26,9 @@ random sentences. Content is store is a separate cache and referred in the vecto
 cache via key id.
 
 #### question-answer-demo.ipynb
+*This demo needs an openAI api key: it must be stored in a `.env` file in the form
+`OPENAI_API_KEY=<your-key-here>`*
+
 Implement a question answer bot that can answer to question about pdf AI book
 provided as an input data. For this an OpenAI api key is needed.
 
