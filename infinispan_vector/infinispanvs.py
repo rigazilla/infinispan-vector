@@ -60,10 +60,10 @@ class InfinispanVS(VectorStore):
     """
 
     def __init__(
-        self,
-        embedding: Optional[Embeddings] = None,
-        ids: Optional[List[str]] = None,
-        **kwargs: Any,
+            self,
+            embedding: Optional[Embeddings] = None,
+            ids: Optional[List[str]] = None,
+            **kwargs: Any,
     ):
         self.ispn = Infinispan(**kwargs)
         self._configuration = kwargs
@@ -102,18 +102,18 @@ message %s {
 */
 repeated float %s = 1;
 '''
-        metadata_proto= metadata_proto_tpl % (self._entity_name, dimension, self._vectorfield)
+        metadata_proto = metadata_proto_tpl % (self._entity_name, dimension, self._vectorfield)
         idx = 2
-        for f in templ:
-            if isinstance(f, str):
+        for f, v in templ.items():
+            if isinstance(v, str):
                 metadata_proto += "optional string " + f + " = " + str(idx) + ";\n"
-            elif isinstance(f, int):
+            elif isinstance(v, int):
                 metadata_proto += "optional int64 " + f + " = " + str(idx) + ";\n"
-            elif isinstance(f, float):
+            elif isinstance(v, float):
                 metadata_proto += "optional double " + f + " = " + str(idx) + ";\n"
-            elif isinstance(f, bytes):
+            elif isinstance(v, bytes):
                 metadata_proto += "optional bytes " + f + " = " + str(idx) + ";\n"
-            elif isinstance(f, bool):
+            elif isinstance(v, bool):
                 metadata_proto += "optional bool " + f + " = " + str(idx) + ";\n"
             else:
                 raise Exception("Unable to build proto schema for metadata. Unhandled type for field: " + f)
@@ -146,7 +146,7 @@ repeated float %s = 1;
         """
         if config == "":
             config = (
-                '''
+                    '''
             {
   "distributed-cache": {
     "owners": "2",
@@ -162,8 +162,8 @@ repeated float %s = 1;
       "indexing-mode": "AUTO",
       "indexed-entities": [
         "'''
-                + self._entity_name
-                + """"
+                    + self._entity_name
+                    + """"
       ]
     }
   }
@@ -208,11 +208,11 @@ repeated float %s = 1;
         return self.ispn.index_reindex(self._cache_name)
 
     def add_texts(
-        self,
-        texts: Iterable[str],
-        metadatas: Optional[List[dict]] = None,
-        last_vector: Optional[List[float]] = None,
-        **kwargs: Any,
+            self,
+            texts: Iterable[str],
+            metadatas: Optional[List[dict]] = None,
+            last_vector: Optional[List[float]] = None,
+            **kwargs: Any,
     ) -> List[str]:
         result = []
         texts_l = list(texts)
@@ -234,14 +234,14 @@ repeated float %s = 1;
         return result
 
     def similarity_search(
-        self, query: str, k: int = 4, **kwargs: Any
+            self, query: str, k: int = 4, **kwargs: Any
     ) -> List[Document]:
         """Return docs most similar to query."""
         documents = self.similarity_search_with_score(query=query, k=k)
         return [doc for doc, _ in documents]
 
     def similarity_search_with_score(
-        self, query: str, k: int = 4, **kwargs: Any
+            self, query: str, k: int = 4, **kwargs: Any
     ) -> List[Tuple[Document, float]]:
         """Perform a search on a query string and return results with score.
 
@@ -257,13 +257,13 @@ repeated float %s = 1;
         return documents
 
     def similarity_search_by_vector(
-        self, embedding: List[float], k: int = 4, **kwargs: Any
+            self, embedding: List[float], k: int = 4, **kwargs: Any
     ) -> List[Document]:
         res = self.similarity_search_with_score_by_vector(embedding, k)
         return [doc for doc, _ in res]
 
     def similarity_search_with_score_by_vector(
-        self, embedding: List[float], k: int = 4
+            self, embedding: List[float], k: int = 4
     ) -> List[Tuple[Document, float]]:
         """Return docs most similar to embedding vector.
 
@@ -276,14 +276,14 @@ repeated float %s = 1;
         """
         if self._output_fields is None:
             query_str = (
-                "select v, score(v) from "
-                + self._entity_name
-                + " v where v."
-                + self._vectorfield
-                + " <-> "
-                + json.dumps(embedding)
-                + "~"
-                + str(k)
+                    "select v, score(v) from "
+                    + self._entity_name
+                    + " v where v."
+                    + self._vectorfield
+                    + " <-> "
+                    + json.dumps(embedding)
+                    + "~"
+                    + str(k)
             )
         else:
             query_proj = "select "
@@ -291,22 +291,22 @@ repeated float %s = 1;
                 query_proj = query_proj + "v." + field + ","
             query_proj = query_proj + "v." + self._output_fields[-1]
             query_str = (
-                query_proj
-                + ", score(v) from "
-                + self._entity_name
-                + " v where v."
-                + self._vectorfield
-                + " <-> "
-                + json.dumps(embedding)
-                + "~"
-                + str(k)
+                    query_proj
+                    + ", score(v) from "
+                    + self._entity_name
+                    + " v where v."
+                    + self._vectorfield
+                    + " <-> "
+                    + json.dumps(embedding)
+                    + "~"
+                    + str(k)
             )
         query_res = self.ispn.req_query(query_str, self._cache_name)
         result = json.loads(query_res.text)
         return self._query_result_to_docs(result)
 
     def _query_result_to_docs(
-        self, result: dict[str, Any]
+            self, result: dict[str, Any]
     ) -> List[Tuple[Document, float]]:
         documents = []
         for row in result["hits"]:
@@ -333,31 +333,36 @@ repeated float %s = 1;
             # Ensure index is clean
             self.cache_index_clear()
 
-    def clear_config(self):
+    def config_clear(self):
         self.schema_delete()
         self.cache_delete()
 
     @classmethod
     def from_texts(
-        cls: Type[InfinispanVS],
-        texts: List[str],
-        embedding: Embeddings,
-        metadatas: Optional[List[dict]] = None,
-        ids: Optional[List[str]] = None,
-        clear_old: Optional[bool] = True,
-        auto_config: Optional[bool] = True,
-        **kwargs: Any,
+            cls: Type[InfinispanVS],
+            texts: List[str],
+            embedding: Embeddings,
+            metadatas: Optional[List[dict]] = None,
+            ids: Optional[List[str]] = None,
+            clear_old: Optional[bool] = True,
+            auto_config: Optional[bool] = True,
+            **kwargs: Any,
     ) -> InfinispanVS:
         """Return VectorStore initialized from texts and embeddings."""
         infinispanvs = cls(embedding=embedding, ids=ids, **kwargs)
-        if clear_old:
-            infinispanvs.clear_config()
         if auto_config and len(metadatas or []) > 0:
-            vec = embedding.embed_query(texts[len(texts)-1])
+            if clear_old:
+                infinispanvs.config_clear()
+            vec = embedding.embed_query(texts[len(texts) - 1])
             infinispanvs.configure(metadatas[0], len(vec))
+        else:
+            if clear_old:
+                infinispanvs.cache_clear()
+            vec = embedding.embed_query(texts[len(texts) - 1])
         if texts:
             infinispanvs.add_texts(texts, metadatas, vector=vec)
         return infinispanvs
+
 
 REST_TIMEOUT = 10
 
@@ -384,7 +389,7 @@ class Infinispan:
         )
 
     def req_query(
-        self, query: str, cache_name: str, local: bool = False
+            self, query: str, cache_name: str, local: bool = False
     ) -> requests.Response:
         """Request a query
         Args:
@@ -399,15 +404,15 @@ class Infinispan:
         return self._query_get(query, cache_name, local)
 
     def _query_post(
-        self, query_str: str, cache_name: str, local: bool = False
+            self, query_str: str, cache_name: str, local: bool = False
     ) -> requests.Response:
         api_url = (
-            self._default_node
-            + self._cache_url
-            + "/"
-            + cache_name
-            + "?action=search&local="
-            + str(local)
+                self._default_node
+                + self._cache_url
+                + "/"
+                + cache_name
+                + "?action=search&local="
+                + str(local)
         )
         data = {"query": query_str}
         data_json = json.dumps(data)
@@ -420,17 +425,17 @@ class Infinispan:
         return response
 
     def _query_get(
-        self, query_str: str, cache_name: str, local: bool = False
+            self, query_str: str, cache_name: str, local: bool = False
     ) -> requests.Response:
         api_url = (
-            self._default_node
-            + self._cache_url
-            + "/"
-            + cache_name
-            + "?action=search&query="
-            + query_str
-            + "&local="
-            + str(local)
+                self._default_node
+                + self._cache_url
+                + "/"
+                + cache_name
+                + "?action=search&query="
+                + query_str
+                + "&local="
+                + str(local)
         )
         response = requests.get(api_url, timeout=REST_TIMEOUT)
         return response
@@ -544,7 +549,7 @@ class Infinispan:
             An http Response containing the result of the operation
         """
         api_url = (
-            self._default_node + self._cache_url + "/" + cache_name + "?action=clear"
+                self._default_node + self._cache_url + "/" + cache_name + "?action=clear"
         )
         response = requests.post(api_url, timeout=REST_TIMEOUT)
         return response
@@ -557,7 +562,7 @@ class Infinispan:
             True if cache exists
         """
         api_url = (
-            self._default_node + self._cache_url + "/" + cache_name + "?action=clear"
+                self._default_node + self._cache_url + "/" + cache_name + "?action=clear"
         )
         return self.resource_exists(api_url)
 
@@ -580,11 +585,11 @@ class Infinispan:
             An http Response containing the result of the operation
         """
         api_url = (
-            self._default_node
-            + self._cache_url
-            + "/"
-            + cache_name
-            + "/search/indexes?action=clear"
+                self._default_node
+                + self._cache_url
+                + "/"
+                + cache_name
+                + "/search/indexes?action=clear"
         )
         return requests.post(api_url, timeout=REST_TIMEOUT)
 
@@ -596,10 +601,10 @@ class Infinispan:
             An http Response containing the result of the operation
         """
         api_url = (
-            self._default_node
-            + self._cache_url
-            + "/"
-            + cache_name
-            + "/search/indexes?action=reindex"
+                self._default_node
+                + self._cache_url
+                + "/"
+                + cache_name
+                + "/search/indexes?action=reindex"
         )
         return requests.post(api_url, timeout=REST_TIMEOUT)
